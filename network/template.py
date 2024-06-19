@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from typing import TYPE_CHECKING, Any, Dict, List
-from encoder.complex import ComplexEncoder
+from network.encoder.complex import ComplexEncoder
 
 DONE = 'done'
 LOGITS = 'logits'
@@ -35,7 +35,6 @@ class TemplateNetwork(nn.Module):
                     value_config,
                     share_critic = True):
         super().__init__()
-        
         self._encoder_config = encoder_config       
         self._aggregator_config = aggregator_config       
         self._decoder_config = decoder_config       
@@ -45,7 +44,7 @@ class TemplateNetwork(nn.Module):
         # self._encoders = {name: construct(encoder) for name, encoder in self._encoder_config.items()}
         self._complex = ComplexEncoder(self._encoder_config)
         self._aggregator = construct(self._aggregator_config)
-        self._decoders = {name: construct(decoder) for name, decoder in self._decoder_config.items()}
+        self._decoders = nn.ModuleDict({name: construct(decoder) for name, decoder in self._decoder_config.items()})
         self._value = construct(self._value_config)
         # self._dependency = Dependency(self._encoder_config, self._encoders)
         self._default_source_embeddings = torch.zeros(1)
@@ -57,11 +56,10 @@ class TemplateNetwork(nn.Module):
         #     self._critic_dependency = Dependency(self._encoder_config, self.critic_encoder_dict)
 
         #     self._critic_aggregator = construct(aggregator_config)
-     
+
     def forward(self, input_dict, behavior_action_dict = None, training = False):
         # Encode
         encoders_output_dict, encoder_embedding_dict = self._complex(input_dict, training)
-        
 
         # Aggregate
         aggregator_output, aggregator_state = self._aggregate(self._aggregator, input_dict, encoders_output_dict, 256, training)
@@ -69,6 +67,8 @@ class TemplateNetwork(nn.Module):
         # Decode
         decoder_embedding_dict, decoder_logits_dict, decoder_action_dict = {}, {}, {}
         for name, decoder in self._decoders.items():
+            # print(f"name is {name}")
+            decoder_config = self._decoder_config[name]
             source_embeddings = encoder_embedding_dict[decoder.source_encoder_name] if decoder.source_encoder_name \
                                     else input_dict.get("default_source_embeddings", self._default_source_embeddings)
 
@@ -121,10 +121,12 @@ class TemplateNetwork(nn.Module):
         J(θ)关于θ的梯度, 等价于 logp * R的梯度在πθ下的期望 
         '''
         log_prob_dict = {}
-        for action_name, decoder in self._decoder_dict.items():
+        for action_name, decoder in self._decoders.items():
             distribution = decoder.distribution(logits_dict[action_name])
             action = action_dict[action_name]
             action_mask = decoder_mask[action_name]
+            # print('logp is ', distribution.log_prob(action).squeeze())
+            # print('action mask is ', action_mask)
             logp = distribution.log_prob(action).squeeze() * action_mask
             log_prob_dict[action_name] = logp
         return log_prob_dict
@@ -134,14 +136,14 @@ class TemplateNetwork(nn.Module):
         计算每个动作的概率分布的熵 
         '''
         entropy_dict = {}
-        for action_name, decoder in self._decoder_dict.items():
+        for action_name, decoder in self._decoders.items():
             distribution = decoder.distribution(logits_dict[action_name])
             entropy_dict[action_name] = torch.squeeze(distribution.entropy()) * decoder_mask[action_name]
         return entropy_dict
     
     def kl(self, logits_dict, other_logits_dict, decoder_mask):
         kl_dict = {}
-        for action_name, decoder in self._decoder_dict.items():
+        for action_name, decoder in self._decoders.items():
             distribution = decoder.distribution(logits_dict[action_name])
             other_distribution = decoder.distribution(other_logits_dict[action_name])
             kl_dict[action_name] = torch.squeeze(distribution.kl(other_distribution)) * decoder_mask[action_name]

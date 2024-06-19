@@ -1,6 +1,6 @@
 import torch
 
-class TrainPipe:
+class Pipeline:
     def __init__(self):
         pass
 

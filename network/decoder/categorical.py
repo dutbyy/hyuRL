@@ -10,10 +10,10 @@ class CategoricalDecoder(Decoder):
     """
 
     def __init__(self, n, hidden_layer_sizes, activation='relu', temperature=1.0):
-        super(CategoricalDecoder, self).__init__()
+        super().__init__()
         self._n = n
         self._temperature = temperature
-        layers = []
+        layers = nn.ModuleList()
         
         layer_sizes = [CommonLayerSize] + hidden_layer_sizes
         # 为后续层添加线性层、ReLU和LayerNorm
@@ -27,9 +27,11 @@ class CategoricalDecoder(Decoder):
         self.embedding_vocabulary = nn.Embedding(self._n, CommonLayerSize)
 
     def forward(self, inputs, action_mask=None, behavior_action=None):
+
         logits = self._dense_sequence(inputs[0])
         if action_mask is not None:
             logits = logits.masked_fill(action_mask == 0, float('-inf'))
+        # print(f"categorical decoder logits : {logits}")
         distribution = Categorical(logits=logits / self._temperature)
 
         # 如果没有提供行为动作，则从分布中采样一个动作

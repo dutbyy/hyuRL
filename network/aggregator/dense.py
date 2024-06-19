@@ -5,7 +5,7 @@ import torch.nn as nn
 class DenseAggregator(nn.Module):
 
     def __init__(self, hidden_layer_sizes: List[int], output_size: int, in_features: int=128):
-        super(DenseAggregator, self).__init__()
+        super().__init__()
         layers = []
         
         layer_sizes = [in_features] + hidden_layer_sizes 
@@ -22,5 +22,8 @@ class DenseAggregator(nn.Module):
                 seq_len: int = 1, training:bool=False) -> Tuple[torch.Tensor, None]:
         del initial_state, seq_len  # Unused by forward
         concat_features = torch.cat(inputs, dim=-1)
+        # for logits in inputs:
+        #     print('logit ', logits.device)
+        # print('cct feat', concat_features, concat_features.device)
         outputs = self._dense_sequence(concat_features)
         return outputs, None

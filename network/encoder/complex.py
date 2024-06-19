@@ -20,14 +20,14 @@ class ComplexEncoder(nn.Module):
     def __init__(self, encoder_config):    
         super().__init__()
         self._encoder_config = encoder_config    
-        self._encoders = {name: construct(encoder) for name, encoder in self._encoder_config.items()}
-        
+        self._encoders = nn.ModuleDict({name: construct(encoder) for name, encoder in self._encoder_config.items()})
+
     
     def forward(self, input_dict: Dict, training:bool = False):
         encoders_output_dict = {} 
         encoder_embedding_dict = {}
         for name, encoder in self._encoders.items():
-            outputs, embeddings = encoder(input_dict[name], training)   
+            outputs, embeddings = encoder(torch.Tensor(input_dict[name]), training)   
             encoders_output_dict[name] = outputs
             encoder_embedding_dict[name] = embeddings
         return encoders_output_dict, encoder_embedding_dict

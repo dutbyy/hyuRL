@@ -10,9 +10,9 @@ class Decoder(nn.Module):
     """
 
     def __init__(self):
-        super().__init__()
         self.source_encoder_name = None
         # Initialize your layers here
+        super().__init__()
 
     def forward(self, inputs, action_mask=None, behavior_action=None):
         # Implement your forward pass here

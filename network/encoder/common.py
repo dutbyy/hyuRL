@@ -46,6 +46,7 @@ class CommonEncoder(nn.Module):
         Tuple[torch.Tensor, None]
             编码后的特征；保留统计信息的embedding
         """
+        # print('common encoder', next(self.parameters()).is_cuda)
         return self._dense_sequence(inputs), None
 
 if __name__ == '__main__':
