@@ -48,7 +48,7 @@ class VPGLoss(nn.Module):
         pi_info = dict(kl=approx_kl, ent=ent)
 
         loss = loss_pi + value_loss
-        return loss, loss_pi, pi_info
+        return loss, loss_pi, value_loss
         # return loss, policy_loss, value_loss, entropy_loss 
     
     
@@ -59,7 +59,7 @@ def test():
     new_probs = torch.tensor([0.45, 0.55, 0.65])
     values = torch.tensor([0.7, 0.8, 0.9])
 
-    loss_fn = PPOLoss()
+    loss_fn = VPGLoss()
     loss = loss_fn(advantages, old_probs, new_probs, values)
     print("总损失:", loss.item())
 

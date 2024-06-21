@@ -38,11 +38,12 @@ class CategoricalDecoder(Decoder):
         if behavior_action is None:
             behavior_action = distribution.sample()
         behavior_action_embedding = self.embedding_vocabulary(behavior_action)
-        
+
         # 计算自回归嵌入，结合行为动作嵌入和输入
         auto_regressive_embedding = behavior_action_embedding + inputs[0]
         return logits, behavior_action, auto_regressive_embedding
     
-    
+
     def distribution(self, logits):
+        # print(f"dist logits is {logits}")
         return Categorical(logits=logits / self._temperature)

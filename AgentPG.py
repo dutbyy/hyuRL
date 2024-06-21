@@ -8,7 +8,7 @@ import torch
 from torch import optim
 import gym
 from network.template import TemplateNetwork
-from loss.ppo import PPOLoss
+from loss.vpg import VPGLoss
 
 from tools.gae import calculate_gae
 from memory.buffer import Memory
@@ -23,7 +23,8 @@ class AgentPPO:
         self._network = TemplateNetwork(*args)
         self._network.to(device)
         self._optimizer = optim.Adam(self._network.parameters(), lr=1e-4)
-        self._loss_fn = PPOLoss(entropy_coef=0.0)
+        self._optimizer_value = optim.Adam(self._network._value.parameters(), lr=1e-4)
+        self._loss_fn = VPGLoss(entropy_coef=0.0)
         self.memory = Memory()
         
     def inference(self, state):
@@ -44,7 +45,7 @@ class AgentPPO:
         advantages = trainning_data.get("advantages")
         old_logp_dict_running = trainning_data.get('log_probs')
         old_logp = sum(old_logp_dict_running.values())  # 在动作维度合并logp (相当于动作概率连乘)
-        for epoch in range(10):
+        for epoch in range(6):
             predict_output_dict = self._network(inputs_dict, behavior_action_dict, training=True)
             logits_dict = predict_output_dict['logits']
             
@@ -56,7 +57,7 @@ class AgentPPO:
             entropy = torch.mean(sum(entropy_dict.values()))
             value = predict_output_dict['value']
             target_value = advantages + behavior_values
-            loss, policy_loss, value_loss, entropy_loss, ratio = self._loss_fn(
+            loss, policy_loss, value_loss = self._loss_fn(
                     old_log_prob=old_logp,
                     log_prob=logp,
                     advantage=advantages,
@@ -64,12 +65,16 @@ class AgentPPO:
                     value=value,
                     target_value=target_value,
                     entropy=entropy)
-            
+
             self._optimizer.zero_grad()
-            loss.backward()
-            # logging.info(f"loss: {loss}, ratio: {ratio}")
-            torch.nn.utils.clip_grad_norm_(self._network.parameters(), 40.0)
-            self._optimizer.step()
+            if epoch == 0:
+                policy_loss.backward()
+                torch.nn.utils.clip_grad_norm_(self._network.parameters(), 40.0)
+                self._optimizer.step()
+            else : 
+                value_loss.backward()
+                torch.nn.utils.clip_grad_norm_(self._network._value.parameters(), 40.0)
+                self._optimizer_value.step()
         return 
             
             
@@ -134,7 +139,7 @@ if __name__ == '__main__':
             # reward -= abs(nstate[1]) * .1
             # reward -= abs(nstate[2]) * .3
             # reward -= abs(nstate[3]) * .3
-            reward *= 1
+            reward *= .01
             total_reward += 1
             done = done or truncted
 
@@ -144,12 +149,12 @@ if __name__ == '__main__':
             agent.memory.store( {"common_encoder": torch.Tensor(state)}, outputs['action'], reward, 1 if done else 0 , logp, action_mask, outputs['value'], outputs['logits'])
            
             if agent.memory.size >= 1024:
-                print(f'{train_step}: average reward is {int(sum(total_rewards)/len(total_rewards))}', end = '\t') 
+                print(f'{train_step}: average reward is {sum(total_rewards)/len(total_rewards)}', end = '\t') 
                 start_time = timeit.default_timer()
                 agent.train()
                 end_time = timeit.default_timer()
 
-                print(f"train eplased time : {end_time - start_time:3}")
+                print(f"train eplased time : {end_time - start_time}")
                 train_step +=1
                 agent.memory.reset()
                 total_rewards = []

@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Callable
 from network.encoder.complex import ComplexEncoder
 
 DONE = 'done'
@@ -43,9 +43,9 @@ class TemplateNetwork(nn.Module):
 
         # self._encoders = {name: construct(encoder) for name, encoder in self._encoder_config.items()}
         self._complex = ComplexEncoder(self._encoder_config)
-        self._aggregator = construct(self._aggregator_config)
+        self._aggregator:nn.Module = construct(self._aggregator_config)
         self._decoders = nn.ModuleDict({name: construct(decoder) for name, decoder in self._decoder_config.items()})
-        self._value = construct(self._value_config)
+        self._value:nn.Module = construct(self._value_config)
         # self._dependency = Dependency(self._encoder_config, self._encoders)
         self._default_source_embeddings = torch.zeros(1)
 
@@ -123,11 +123,13 @@ class TemplateNetwork(nn.Module):
         log_prob_dict = {}
         for action_name, decoder in self._decoders.items():
             distribution = decoder.distribution(logits_dict[action_name])
+            # print("logits is ", logits_dict[action_name])
             action = action_dict[action_name]
-            action_mask = decoder_mask[action_name]
-            # print('logp is ', distribution.log_prob(action).squeeze())
-            # print('action mask is ', action_mask)
-            logp = distribution.log_prob(action).squeeze() * action_mask
+            action_mask = decoder_mask[action_name].squeeze()
+            # print('logps, ', action)
+            # print('action_mask, ', action_mask)
+            logp = distribution.log_prob(action).squeeze()
+            logp = logp *  action_mask
             log_prob_dict[action_name] = logp
         return log_prob_dict
     

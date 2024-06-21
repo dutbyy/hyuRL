@@ -9,16 +9,16 @@ from tools.gae import calculate_gae
 import logging
 
 is_cuda = torch.cuda.is_available()
-# is_cuda = False
+is_cuda = False
 device = torch.device("cuda" if is_cuda else "cpu")
 torch.autograd.set_detect_anomaly(True)
 
 class PPOTrainer:
     def __init__(self, *args):
         self._network = TemplateNetwork(*args)
-        print("!!!!", next(self._network.parameters()).is_cuda)
+        # print("!!!!", next(self._network.parameters()).is_cuda)
         self._network.to(device)
-        print('~~~~', next(self._network.parameters()).is_cuda)
+        # print('~~~~', next(self._network.parameters()).is_cuda)
         self._optimizer = optim.Adam(self._network.parameters(), lr=1e-4)
         self._loss_fn = PPOLoss()
         self.clean_data()
@@ -41,10 +41,6 @@ class PPOTrainer:
         inputs = {k: v.to(device) for k, v in inputs.items()}
         with torch.no_grad():
             outputs = self._network(inputs)
-        action = outputs['action']
-        # print(f"action is {action}")
-        # self.input_dict['common_encoder'].append(torch.Tensor(state))
-
         return outputs
 
     
@@ -52,6 +48,7 @@ class PPOTrainer:
         # 从behavior_info_dict中提取信息
         inputs_dict = {k : torch.stack(v) for k, v in self.input_dict.items() }
         inputs_dict = {k: v.to(device) for k, v in inputs_dict.items()}
+        # print(inputs_dict)
         behavior_info_dict = self.behavior_info_dict 
         behavior_action = behavior_info_dict['action']
         behavior_action_dict = {}
@@ -95,7 +92,7 @@ class PPOTrainer:
         old_logp = sum(old_logp_dict.values())
         
         # logging.warning(f"log p is {logp}\nold logp is {old_logp}")
-        logging.warning(f"log p diff is {(logp - old_logp).mean()}")
+        # logging.warning(f"log p diff is {(logp - old_logp).mean()}")
         # 计算熵
         entropy_dict = self._network.entropy(logits_dict, behavior_decoder_mask)
         entropy = torch.mean(sum(entropy_dict.values()))
@@ -108,6 +105,7 @@ class PPOTrainer:
         # 计算 target_value 参考：“A Closer Look At Deep Policy Gradients”
         # https://arxiv.org/pdf/1811.02553.pdf
         target_value = advantage + behavior_value[:-1]
+        # print(target_value)
 
         # logging.warning(f"value:        {value}             {value.shape}")
         # logging.warning(f"target_value: {target_value}      {target_value.shape}")
@@ -155,6 +153,9 @@ if __name__ == '__main__':
     from network.value import ValueApproximator
     from network.aggregator.dense import DenseAggregator
     env = gym.make("CartPole-v1", max_episode_steps=500)
+    import numpy as np
+    np.random.seed(0)
+    torch.manual_seed(0)
     encoder_config  = {
         "common_encoder" : {
             "class": CommonEncoder,
@@ -196,7 +197,7 @@ if __name__ == '__main__':
 
     for episode in range(EpisodeNum):
         inputs_dict = {}
-        state, _ = env.reset()
+        state, _ = env.reset(seed=0)
         total_reward = 0
         # print("Reset The Environment")
         while True:

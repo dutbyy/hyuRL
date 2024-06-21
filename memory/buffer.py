@@ -1,29 +1,37 @@
 import random
+from re import M
+import stat
+from turtle import st
 import torch 
 
 from tools.gae import calculate_gae
-class Fragments:
+
+class Fragment:
     def __init__(self):
-        self.actions = []
         self.states = []
+        self.actions = []
         self.rewards = []
         self.advantages = []
         self.dones = []
         self.values = []
         self.masks = []
-        self.traning_data = []
         self.logits = []
+        self.log_probs = []
     
     def store(self, piece):
-        state, action, reward, done, value = piece
+        state, action, reward, log_prob, mask, done, value, logits = piece
         self.states.append(state)
         self.actions.append(action)
         self.rewards.append(reward)
         self.dones.append(done)
+        self.masks.append(mask)
         self.values.append(value)
+        self.log_probs.append(log_prob)
+        self.logits.append(logits)
         
-    def calc(self):
-        self.gae()
+    def gens(self):
+        advantages = self.gae(self.rewards, self.values, self.dones)
+        return self.states[:-1], self.actions[:-1], self.logits[:-1], self.masks[:-1], self.log_probs[:-1], self.values[:-1], self.dones[:-1], advantages
 
     # 计算广义优势估计 
     def gae(self, rewards, values, dones, gamma: float = 0.99, lamb: float = 0.95):
@@ -37,6 +45,8 @@ class Fragments:
         lamb:
             优 
         '''
+        values = torch.Tensor(values)
+
         advantage = 0.0
         advantages = []
         for i in reversed(range(len(rewards) - 1)):
@@ -52,39 +62,54 @@ class Fragments:
 class Memory:
     def __init__(self):
         self.reset()
-    
+        self.fragment = Fragment()
+        self.size = 0
     def reset(self):
-        self.actions = []
-        self.states = []
-        self.rewards = []
+        self.fragment = Fragment()
+        self.states = {}
+        self.actions = {}
+        self.logits = {}
+        self.log_probs = {}
+        self.masks = {}
         self.advantages = []
-        self.dones = []
+        self.is_terminals = []
         self.values = []
-        self.masks = []
-        self.traning_data = []
-        self.logits = []
-    
-    def store(self, s, a, r, d, logits, mask, value):
-        self.states.append(s)
-        self.actions.append(a)
-        self.rewards.append(r)
-        self.dones.append(d)
-        self.logits.append(logits)
-        self.values.append(value)
-        self.masks.append(mask)
-        self.trajectory = []
+        self.size = 0 
+        
+    def store(self, s, a, r, done, log_prob, mask, value, logit):
+        self.fragment.store([s, a, r, log_prob, mask, done, value, logit])
+        if done or len(self.fragment.actions) >= 100: 
+            states, actions, logits, masks, logps, values,  dones, advs = self.fragment.gens()
+            def trans(lis, dic):
+                for ilis in lis:
+                    for k, v in ilis.items():
+                        if k not in dic:
+                            dic[k] = []
+                        dic[k].append(v)
+
+            trans(states,   self.states)
+            trans(actions,  self.actions)
+            trans(logits,   self.logits)
+            trans(masks,    self.masks)
+            trans(logps,    self.log_probs)
             
+            self.values.extend(values)
+            self.is_terminals.extend(dones)
+            self.advantages.extend(advs)
+            self.size = len(self.values)
+            self.fragment = Fragment()
+
     
     def get_batch(self, batch_size = 8):
-        batch_indices = list(range(len(self.states)))
-        random.shuffle(batch_indices)
-        
-        batch_indices = batch_indices[:batch_size]
+        probabilities = torch.ones(len(self.values))  # 假设所有元素被选中的概率都相同
+        batch_indices = torch.multinomial(probabilities, batch_size, replacement=False)
 
         return {
-            'states': torch.stack([self.states[i] for i in batch_indices]),
-            'actions': torch.stack([self.actions[i] for i in batch_indices]),
-            'log_probs': torch.stack([self.log_probs[i] for i in batch_indices]),
-            'rewards': torch.stack([self.rewards[i] for i in batch_indices]),
-            'is_terminals': torch.stack([self.is_terminals[i] for i in batch_indices])
+            'states':       { k: torch.stack( [v[i] for i in batch_indices]) for k , v in self.states.items() },
+            'actions':      { k: torch.stack( [v[i] for i in batch_indices]) for k , v in self.actions.items() },
+            'logits':       { k: torch.stack( [v[i] for i in batch_indices]) for k , v in self.logits.items() },
+            'masks':        { k: torch.stack( [v[i] for i in batch_indices]) for k , v in self.masks.items() },
+            'log_probs':    { k: torch.stack( [v[i] for i in batch_indices]) for k , v in self.log_probs.items() },
+            'advantages':   torch.stack([self.advantages[i] for i in batch_indices]),
+            'values':       torch.stack([self.values[i] for i in batch_indices]),
         }

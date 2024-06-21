@@ -2,8 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
+def lfPPO(old_log_prob, log_prob, advantage, old_value, value, target_value, entropy):
+    pass 
+
 class PPOLoss(nn.Module):
-    def __init__(self, clip_epsilon=0.1, value_clip=10, value_coef=1, entropy_coef=0.01):
+    def __init__(self, clip_epsilon=0.2, value_clip=5, value_coef=1, entropy_coef=0.01):
         """
         初始化 PPOLoss 模块。
 
@@ -37,18 +41,22 @@ class PPOLoss(nn.Module):
         clipped_ratio = torch.clamp(ratio, 1 - self._clip_epsilon, 1 + self._clip_epsilon)
         surrogate_loss = -torch.min(ratio * advantage, clipped_ratio * advantage).mean()
         policy_loss = torch.mean(surrogate_loss)
-        
+ 
         # 裁剪值函数预测值       
         value_pred_clip = old_value + torch.clamp(value - old_value, -self._value_clip, self._value_clip)
         value_loss1 = (value - target_value).pow(2)
         value_loss2 = (value_pred_clip - target_value).pow(2)
-        value_loss = 0.5 * torch.mean(torch.max(value_loss1, value_loss2))
-
+        value_loss = 0.5 * torch.mean(torch.min(value_loss1, value_loss2))
+        # value_diff1 = torch.sum(torch.max(value_loss1, value_loss2) - value_loss1)
+        # value_diff2 = torch.sum(torch.max(value_loss1, value_loss2) - value_loss2)
+        # if (torch.sum(value_loss1-value_loss2)) > 1:
+        #     print(f"value_diff1 is {value_diff1}")
+        #     print(f"value_diff2 is {value_diff2}")
         value_loss = self._value_coef * value_loss
         entropy_loss = - self._entropy_coef * entropy
         loss = policy_loss + value_loss + entropy_loss
         # print(f"policy loss : {policy_loss}, value_loss : {value_loss}, entropy: {entropy}, loss: {loss}")
-        return loss, policy_loss, value_loss, entropy_loss 
+        return loss, policy_loss, value_loss, entropy_loss, ratio
     
     
 def test():
