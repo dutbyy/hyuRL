@@ -40,8 +40,15 @@ class PPOLoss(nn.Module):
         ratio =  torch.exp(log_prob - old_log_prob)
         clipped_ratio = torch.clamp(ratio, 1 - self._clip_epsilon, 1 + self._clip_epsilon)
         surrogate_loss = -torch.min(ratio * advantage, clipped_ratio * advantage).mean()
+        '''
+        直观理解clip: 
+            surrogate_loss 是要优化的替代目标.(ratio 源于 TRPO)
+            TRPO 使用了约束, PPO则直接吧约束采用clip的方式加到loss内
+            ratio是新旧策略的差距, 在计算目标函数的梯度时, 将其限制在clip内(即优化目标的参数不能太远) 
+            clip时针对的是每个step的梯度
+        '''        
         policy_loss = torch.mean(surrogate_loss)
- 
+
         # 裁剪值函数预测值       
         value_pred_clip = old_value + torch.clamp(value - old_value, -self._value_clip, self._value_clip)
         value_loss1 = (value - target_value).pow(2)

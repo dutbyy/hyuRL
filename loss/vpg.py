@@ -24,7 +24,7 @@ class VPGLoss(nn.Module):
         计算 PPO 损失。
 
         Args:
-            advantage (torch.Tensor): 优势估计。
+            advantage (torch.Tensor): 优势估计。#PS: 这个是估计, 不计入梯度
             old_probs (torch.Tensor): 旧的动作概率。
             new_probs (torch.Tensor): 新的动作概率。
             values (torch.Tensor): 预测的状态值。
@@ -33,8 +33,10 @@ class VPGLoss(nn.Module):
             torch.Tensor: 总的 PPO 损失。
         """
         # 计算 surrogate loss
-        loss_pi = -(log_prob * advantage).mean()
-
+        # loss_pi = -(log_prob * advantage).mean()
+        loss_pi = -(torch.exp(log_prob) * advantage).mean()
+        # loss_pi = -(torch.exp(log_prob - old_log_prob) * advantage).mean()
+        
 
         # 裁剪值函数预测值       
         value_pred_clip = old_value + torch.clamp(value - old_value, -self._value_clip, self._value_clip)
