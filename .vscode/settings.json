@@ -1,10 +1,19 @@
 {
-    "python.analysis.typeCheckingMode": "off",
-    "python.analysis.autoSearchPaths": true,
-    "python.analysis.autoFormatStrings": true,
-    "python.analysis.autoIndent": true,
-    "python.analysis.autoImportCompletions": true,
-    "python.analysis.importFormat":"absolute",
-    "python.analysis.extraPaths": ["/root/cloud-depends/drill", "/root/torch-depends/", "/root/cloud-depends"],
-    "python.analysis.stubPath": "typings"
+  "python.analysis.typeCheckingMode": "off",
+  "python.analysis.autoSearchPaths": true,
+  "python.analysis.autoFormatStrings": true,
+  "python.analysis.autoIndent": true,
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.importFormat": "absolute",
+  "python.analysis.extraPaths": [
+    "/root/cloud-depends/drill",
+    "/root/torch-depends/",
+    "/root/cloud-depends"
+  ],
+  "python.analysis.stubPath": "typings",
+  "python.REPL.enableREPLSmartSend": false,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  }
 }
