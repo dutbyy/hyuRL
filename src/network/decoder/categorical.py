@@ -9,7 +9,7 @@ class CategoricalDecoder(Decoder):
     Decoder for handling discrete actions.
     """
 
-    def __init__(self, n, hidden_layer_sizes, activation='relu', temperature=1.0):
+    def __init__(self, n, hidden_layer_sizes, activation='relu', temperature=0.95):
         super().__init__()
         self._n = n
         self._temperature = temperature
@@ -31,7 +31,7 @@ class CategoricalDecoder(Decoder):
         if action_mask is not None:
             logits = logits.masked_fill(action_mask == 0, float('-inf'))
         # print(f"categorical decoder logits : {logits}")
-        distribution = Categorical(logits=logits / self._temperature)
+        distribution = Categorical(logits=logits/ self._temperature)
 
         # 如果没有提供行为动作，则从分布中采样一个动作
         if behavior_action is None:
@@ -46,3 +46,4 @@ class CategoricalDecoder(Decoder):
     def distribution(self, logits):
         # print(f"dist logits is {logits}")
         return Categorical(logits=torch.Tensor(logits) / self._temperature)
+    

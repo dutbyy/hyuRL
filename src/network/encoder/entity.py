@@ -57,7 +57,7 @@ class EntityEncoder(nn.Module):
             entity_embeddings = self._transformer(entity_embeddings)
         
         # 应用Pooling，这里需要自定义一个Pooling类或者使用PyTorch的池化层来实现相应功能
-        # outputs = self._pooling(entity_embeddings, inputs_len)
+        outputs = self._pooling(entity_embeddings, inputs_len)
         
         return outputs, entity_embeddings
 

@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+message NumpyList {
+    string name = 1;
+    repeated NumpyData  np_arrays = 2;
+}
+
+message NumpyData {
+    string              name = 1;
+    string              dtype = 2;
+    bytes               array_data = 3;
+    repeated int32      shape = 4;
+}
+
+message InferenceReq {
+    NumpyList  data = 1;
+}
+
+message InferenceRsp {
+    int32       err_code = 1;
+    string      err_msg = 2;
+    NumpyList       data = 3;
+}
+
+message UpdateWeightReq {
+    bytes       weight = 1;
+}
+
+message UpdateWeightRsp {
+    int32       err_code = 1;
+    string      err_msg = 2;
+}
+
+// 定义一个服务和两个接口
+service PredictorService {
+    rpc Inference(InferenceReq) returns (InferenceRsp);
+    rpc LogProbs(InferenceReq) returns (InferenceRsp);
+    // rpc AsyncInference(InferenceReq) returns (InferenceRsp);
+    rpc UpdateWeight(UpdateWeightReq) returns (UpdateWeightRsp);
+}

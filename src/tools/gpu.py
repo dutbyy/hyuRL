@@ -1,12 +1,12 @@
-from lib.memory.buffer import Fragment
-from numpy import isin
 import numpy as np
 import torch
+from src.memory.buffer import Fragment
+
 def auto_move(data, device):
     if isinstance(data, torch.Tensor):
         return data.to(device)
     if isinstance(data, np.ndarray):
-        return data.to(device)
+        return torch.Tensor(data).to(device)
     if isinstance(data, np.floating):
         return data
     elif isinstance(data, dict):

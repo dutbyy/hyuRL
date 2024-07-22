@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 from torch.distributions import Normal
-
-class GaussianDecoder(nn.Module):
+from .decoder import Decoder
+CommonLayerSize = 256
+class GaussianDecoder(Decoder):
     """
     Decoder for handling continuous actions.
     """
@@ -13,8 +14,9 @@ class GaussianDecoder(nn.Module):
         self.n = n
         # 定义隐藏层序列
         layers = []
-        for layer_size in hidden_layer_sizes:
-            layers.append(nn.Linear(layer_size, layer_size))
+        layer_sizes = [CommonLayerSize] + hidden_layer_sizes
+        for in_f, out_f in zip(layer_sizes[:-1], layer_sizes[1:]):
+            layers.append(nn.Linear(in_f, out_f))
             if activation == 'relu':
                 layers.append(nn.ReLU())
             # 如果需要，可以添加其他激活函数
@@ -23,7 +25,7 @@ class GaussianDecoder(nn.Module):
         # 初始化log_std变量
         self.log_std = nn.Parameter(torch.zeros(n), requires_grad=True)
         # 定义动作嵌入层
-        self.action_embedding = nn.Linear(hidden_layer_sizes[-1], hidden_layer_sizes[-1])
+        self.action_embedding = nn.Linear(n, CommonLayerSize)
 
     def forward(self, inputs, action_mask=None, behavior_action=None):
         # 通过隐藏层序列处理输入
@@ -37,7 +39,7 @@ class GaussianDecoder(nn.Module):
 
         if behavior_action is None:
             behavior_action = distribution.sample()
-
+        print("behavior_action: ", behavior_action)
         # 获取行为动作的嵌入表示
         behavior_action_embedding = self.action_embedding(behavior_action)
         # 计算自回归嵌入，结合行为动作嵌入和输入

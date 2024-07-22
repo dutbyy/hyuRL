@@ -20,6 +20,12 @@ class PPOPolicy:
         self._optimizer = torch.optim.Adam(self._network.parameters(), lr=1e-4)
         self._loss_fn = PPOLoss(clip_epsilon=0.2, entropy_coef=0.0)
         self.memory = Memory()
+        
+    def train_mode(self):
+        self._network.train()
+        
+    def inference_mode(self):
+        self._network.eval()
 
     def inference(self, state_input):
         a = timeit.default_timer() * 1000
@@ -44,10 +50,18 @@ class PPOPolicy:
         behavior_values = trainning_data.get("values")
         advantages = trainning_data.get("advantages")
         target_value = advantages + behavior_values
-        old_logp_dict_running = trainning_data.get("log_probs")
-        old_logp = sum(
-            old_logp_dict_running.values()
-        )  # 在动作维度合并logp (相当于动作概率连乘)
+        # old_logp_dict_running = trainning_data.get("log_probs")
+        # old_logp = sum(
+        #     old_logp_dict_running.values()
+        # )  # 在动作维度合并logp (相当于动作概率连乘)
+        
+        with torch.no_grad():
+            old_logp_dict_running = self._network.log_probs(
+                behavior_logits_dict, behavior_action_dict, behavior_mask_dict
+            )
+            old_logp = sum(old_logp_dict_running.values())
+            
+            
         for epoch in range(30):
             predict_output_dict = self._network(
                 inputs_dict, behavior_action_dict, training=True
@@ -80,7 +94,7 @@ class PPOPolicy:
             # print("clipped mask", clipped_mask.mean())
             self._optimizer.zero_grad()
             loss.backward()
-            # logging.info(f"loss: {loss}, ratio: {ratio}")
+            # print(f"loss: {loss}, ratio: {torch.mean(torch.abs(ratio-1)).cpu().detach().numpy()}")
             torch.nn.utils.clip_grad_norm_(self._network.parameters(), 40.0)
             self._optimizer.step()
         return

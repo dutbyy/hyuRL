@@ -7,7 +7,7 @@ DONE = 'done'
 LOGITS = 'logits'
 ACTION = 'action'
 VALUE = 'value'
-
+HIDDEN_STATE = 'hidden_state'
 def is_class_dict(class_dict: Dict):
     return ("class" in class_dict) and ("params" in class_dict)
 

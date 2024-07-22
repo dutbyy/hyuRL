@@ -29,3 +29,25 @@ def timer_decorator(func):
         print(f"函数 {func.__name__} 执行时间: {eplased_time} ms")
         return result
     return wrapper
+
+
+
+
+# 实现一个单例模式
+class Singleton(type):
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+    
+    
+    def reset(self):
+        self.infer_times = []
+    
+    
+    def add_infer_time(self, eplased_time):
+        self.infer_times.append(eplased_time)
+    
+    def print_info(self):
+        print(f"Infer times: {self.infer_times}")

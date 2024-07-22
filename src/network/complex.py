@@ -1,16 +1,11 @@
-from uu import decode
 import networkx as nx
-from networkx import is_directed_acyclic_graph, topological_sort
-from numpy import source
 import torch
+from networkx import is_directed_acyclic_graph, topological_sort
 from torch import nn
-from typing import TYPE_CHECKING, Any, Dict, List, Callable
+from torch.nn import functional as F
+from typing import TYPE_CHECKING, Any, Dict, List, Callable, OrderedDict
 
-from src.network.aggregator.aggregator import Aggregator
-from src.network.app_value import ValueApproximator
-from src.network.decoder.decoder import Decoder
-from src.network.encoder.encoder import Encoder
-from src.network.encoder.complex import ComplexEncoder
+from src.network import Encoder, Decoder, Aggregator, ValueApproximator
 
 HIDDEN_PREFIX = '__hidden_state_'
 EMBEDING_PREFIX = '__embedding_'
@@ -52,7 +47,7 @@ def construct_dag(config_dict, model_dict):
         for source in inputs:
             dag.add_edge(source, sub_model_name)
     if not is_directed_acyclic_graph(dag):
-        raise Exception("构造的神经网络内有环")
+        raise Exception("神经网络依赖异常: 网络配置有环")
     return dag, topological_sort(dag)
 
 
@@ -71,14 +66,16 @@ class ComplexNetwork(nn.Module):
         self.top_sorted = [ it for it in top_generator]
         self._default_source_embeddings = torch.zeros(1)
 
-    def forward(self, input_dict, behavior_action_dict = None, training = False):
+    def forward(self, input_dict: dict, behavior_action_dict = None, training = False):
+        # print("input_dict", input_dict)
+        input_dict = {k: torch.Tensor(v) for k, v in input_dict.items()}
         decoder_output = {}
-        predict_output_dict = {
+        predict_output_dict = OrderedDict({
             VALUE: None,
             LOGITS: {},
             ACTION: {},
             HIDDEN_STATE: {}
-        }
+        })
 
         # if aggregator_state:
             # predict_output_dict[HIDDEN_STATE] = aggregator_state 
@@ -88,8 +85,13 @@ class ComplexNetwork(nn.Module):
                 continue
             sub_model = self.sub_model_dict[node_name]
             sub_model_config = self._network_config[node_name]
-            inputs = [ input_dict[source] for source in sub_model_config.get('inputs', []) ]
-
+            inputs = []
+            for source in sub_model_config.get('inputs', []):
+                if input_dict and source in input_dict:
+                    inputs.append(input_dict[source])
+            # inputs = [ input_dict[source] for source in sub_model_config.get('inputs', []) ]
+            if len(inputs) == 0:
+                continue # raise ValueError("Model have not inputs")
             if isinstance(sub_model, Encoder):
                 inputs = torch.concat(inputs, -1)
                 # print('encoder before input dict is ', input_dict)
@@ -97,7 +99,7 @@ class ComplexNetwork(nn.Module):
                 input_dict[node_name] = outputs
                 input_dict[EMBEDING_PREFIX+node_name] = embeddings
                 # print('encoder over input dict is ', input_dict)
-            
+
             elif isinstance(sub_model, Aggregator):
                 # inputs = torch.concat(inputs, -1)
                 # print(inputs.shape)
@@ -116,7 +118,8 @@ class ComplexNetwork(nn.Module):
                 predict_output_dict[VALUE] = value
                 
             elif isinstance(sub_model, Decoder):
-                inputs = sum(inputs) / len(inputs)
+                # inputs = sum(inputs) / len(inputs)
+                inputs = torch.concat(inputs, -1)
                 source_encoder_name = sub_model_config.get("source_encoder_name", None)
                 if source_encoder_name: 
                     source_embeddings = input_dict[EMBEDING_PREFIX + source_encoder_name]
@@ -151,8 +154,9 @@ class ComplexNetwork(nn.Module):
             
             else:
                 print("Unsupport Submodel")
-        print(f"input_dict is {input_dict.keys()}")
-        print(f"output_dict is {predict_output_dict.keys()}")
+                
+        # print(f"input_dict is {input_dict.keys()}")
+        # print(f"output_dict is {predict_output_dict.keys()}")
         return predict_output_dict       
             
     def get_aggregator_init_state(self):
@@ -187,13 +191,10 @@ class ComplexNetwork(nn.Module):
     
     def kl(self, logits_dict, other_logits_dict, decoder_mask):
         with torch.no_grad():
-            from torch.nn import functional as F
-            kl_dict = {}
-            for action_name, decoder in logits_dict.items():
-                # distribution = decoder.distribution(logits_dict[action_name])
-                # other_distribution = decoder.distribution(other_logits_dict[action_name])
-                # kl_dict[action_name] = torch.squeeze(distribution.kl(other_distribution)) * decoder_mask[action_name]
-                kl_dict[action_name] = F.softmax(logits_dict[action_name]) * (F.log_softmax(logits_dict[action_name]) - F.log_softmax(other_logits_dict[action_name]))
+            kl_dict = {
+                action_name: F.softmax(logits) * (F.log_softmax(logits) - F.log_softmax(other_logits_dict[action_name]))
+                for action_name, logits in logits_dict.items() 
+            }
         return kl_dict
     
     def _aggregate(self, aggregator, input_dict, encoder_output_dict, hidden_state_key, training):
@@ -211,9 +212,9 @@ class ComplexNetwork(nn.Module):
 
 if __name__ == '__main__':
     from src.network.encoder.common import CommonEncoder
-    from lib.network.decoder.categorical import CategoricalDecoder
-    from lib.network.app_value import ValueApproximator
-    from lib.network.aggregator.dense import DenseAggregator
+    from src.network.decoder.categorical import CategoricalDecoder
+    from src.network.app_value import ValueApproximator
+    from src.network.aggregator.dense import DenseAggregator
     
     network_cfg = {
         "encoder_demo" : {

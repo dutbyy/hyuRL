@@ -30,8 +30,8 @@ class Fragment:
         self.dones.append(done)
         self.masks.append(mask)
         self.values.append(value)
-        self.log_probs.append(log_prob)
-        # self.logits.append(logits)
+        # self.log_probs.append(log_prob)
+        self.logits.append(logits)
         
     def gens(self):
         advantages = self.gae(self.rewards, self.values, self.dones)
@@ -60,8 +60,10 @@ class Fragment:
         #   gamma
         # advantage 是 多步TD误差
         # print(values)
-        values = np.array(values)
-
+        # values = values.detach().numpy()
+        # print(values)
+        # values = torch.Tensor(values)
+        # values = torch.concat(values)
         advantage = 0.0
         advantages = []
         for i in reversed(range(len(rewards) - 1)):
@@ -76,7 +78,7 @@ class Memory:
     def __init__(self):
         self.reset()
         self.fragment = Fragment()
-        self.size = 0
+        self._size = 0
     def reset(self):
         self.fragment = Fragment()
         self.states = {}
@@ -87,7 +89,11 @@ class Memory:
         self.advantages = []
         self.is_terminals = []
         self.values = []
-        self.size = 0 
+        self._size = 0 
+    
+    @property
+    def size(self):
+        return self._size
         
     def store(self, s, a, r, done, log_prob, mask, value, logit):
         self.fragment.store(s, a, r, log_prob, mask, done, value, logit)
@@ -102,17 +108,17 @@ class Memory:
 
             trans(states,   self.states)
             trans(actions,  self.actions)
-            # trans(logits,   self.logits)
+            trans(logits,   self.logits)
             trans(masks,    self.masks)
-            trans(logps,    self.log_probs)
+            # trans(logps,    self.log_probs)
             
             self.values.extend(values)
             self.is_terminals.extend(dones)
             self.advantages.extend(advs)
-            self.size = len(self.values)
+            self._size = len(self.values)
             self.fragment = Fragment()
 
-    def distore(self, fragment:Fragment):
+    def fstore(self, fragment:Fragment):
         states, actions, logits, masks, logps, values,  dones, advs = fragment.gens()
         def trans(lis, dic):
             for ilis in lis:
@@ -123,26 +129,25 @@ class Memory:
 
         trans(states,   self.states)
         trans(actions,  self.actions)
-        # trans(logits,   self.logits)
+        trans(logits,   self.logits)
         trans(masks,    self.masks)
-        trans(logps,    self.log_probs)
+        # trans(logps,    self.log_probs)
         
         self.values.extend(values)
         self.is_terminals.extend(dones)
         self.advantages.extend(advs)
-        self.size = len(self.values)
-        
+        self._size = len(self.values)
         
     def get_batch(self, batch_size = 8):
         probabilities = torch.ones(len(self.values))  # 假设所有元素被选中的概率都相同
         batch_indices = torch.multinomial(probabilities, batch_size, replacement=False)
 
         return {
-            'states':       { k: torch.stack( [v[i] for i in batch_indices]) for k , v in self.states.items() },
-            'actions':      { k: torch.stack( [v[i] for i in batch_indices]) for k , v in self.actions.items() },
-            # 'logits':       { k: torch.stack( [v[i] for i in batch_indices]) for k , v in self.logits.items() },
-            'masks':        { k: torch.stack( [v[i] for i in batch_indices]) for k , v in self.masks.items() },
-            'log_probs':    { k: torch.stack( [v[i] for i in batch_indices]) for k , v in self.log_probs.items() },
-            'advantages':   torch.stack([self.advantages[i] for i in batch_indices]),
-            'values':       torch.stack([self.values[i] for i in batch_indices]),
+            'states':       { k: torch.stack( [torch.as_tensor(v[i]) for i in batch_indices]) for k , v in self.states.items() },
+            'actions':      { k: torch.stack( [torch.as_tensor(v[i]) for i in batch_indices]) for k , v in self.actions.items() },
+            'logits':       { k: torch.stack( [torch.as_tensor(v[i]) for i in batch_indices]) for k , v in self.logits.items() },
+            'masks':        { k: torch.stack( [torch.as_tensor(v[i]) for i in batch_indices]) for k , v in self.masks.items() },
+            # 'log_probs':    { k: torch.stack( [torch.as_tensor(v[i]) for i in batch_indices]) for k , v in self.log_probs.items() },
+            'advantages':   torch.stack([torch.as_tensor(self.advantages[i])    for i in batch_indices]),
+            'values':       torch.stack([torch.as_tensor(self.values[i])        for i in batch_indices]),
         }
