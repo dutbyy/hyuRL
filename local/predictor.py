@@ -1,31 +1,32 @@
 import pickle
-from typing import Dict, Union
 import grpc
-from torch import Tensor
-import torch
-from proto import predictor_pb2
-from proto import predictor_pb2_grpc
 import time
 import asyncio
 import timeit
-from asyncio import shield
+from networkx import dag_longest_path
+import torch
 import numpy as np
+from typing import Dict, Union
+from proto import predictor_pb2
+from proto import predictor_pb2_grpc
 from src.tools.gpu import auto_move
 
 def common_serialize(data: Dict[str, np.ndarray]) -> bytes:
     np_list = predictor_pb2.NumpyList()
-    def serialize_item(item, pre_name=None):
+    def serialize_item(item: Dict, pre_name=None):
         for k, v in item.items():
             current_name = f"{pre_name}.{k}" if pre_name is not None else k
             if isinstance(v, torch.Tensor):
-                v = v.cpu().detach().numpy() 
+                v = v.cpu().detach().numpy()
             if isinstance(v, dict):
                 serialize_item(v, pre_name=f'{current_name}')
-            else :
+            elif v is None :
+                continue
+            else:
                 np_item = predictor_pb2.NumpyData(
-                    name = current_name, 
+                    name = current_name,
                     dtype = str(v.dtype),
-                    array_data = np.array(v).tobytes(), 
+                    array_data = np.array(v).tobytes(),
                     shape = v.shape,
                 )
                 np_list.np_arrays.append(np_item)
@@ -35,11 +36,9 @@ def common_serialize(data: Dict[str, np.ndarray]) -> bytes:
 
 def common_deserialize(np_list: predictor_pb2.NumpyList) -> Dict[str, Union[np.ndarray, Dict]]:
     data_dict = {}
-
     def deserialize_item(item: predictor_pb2.NumpyData, current_dict: Dict):
         dtype = np.dtype(item.dtype)
         array = np.frombuffer(item.array_data, dtype=dtype).reshape(item.shape)
-
         name = item.name
         if '.' in name:
             parts = name.split('.')
@@ -51,40 +50,39 @@ def common_deserialize(np_list: predictor_pb2.NumpyList) -> Dict[str, Union[np.n
             current_dict[last_part] = array
         else:
             current_dict[name] = array
-
     for item in np_list.np_arrays:
         deserialize_item(item, data_dict)
-    
     return data_dict
 
 
 
 class PredictorClient:
-    def __init__(self, host, port):
-        self.channel = grpc.aio.insecure_channel(f'{host}:{port}')
+    def __init__(self, host, port, aio=True):
+        if aio:
+            self.channel = grpc.aio.insecure_channel(f'{host}:{port}')
+        else:
+            self.channel = grpc.insecure_channel(f'{host}:{port}')
         self.stub = predictor_pb2_grpc.PredictorServiceStub(self.channel)
-        
+
     async def predict(self, inputs):
-        # nplist = common_serialize(inputs)
-        # print(f'predicting: {inputs}')
-        request = predictor_pb2.InferenceReq()
-        request.data.CopyFrom(common_serialize(inputs))
-        # print('!!!!!!', request)
+        request = predictor_pb2.InferenceReq(data=common_serialize(inputs))
         inference_response = await self.stub.Inference(request)
-        # print("Inference response:", inference_response.data)
         return common_deserialize(inference_response.data), inference_response.err_code
-    
+
     async def log_probs(self, data, action, mask):
-        request = predictor_pb2.InferenceReq(data=pickle.dumps([data, action, mask]))
+        inputs = {
+            'logits': data,
+            'action': action,
+            'mask': mask
+        }
+        request = predictor_pb2.InferenceReq(data=common_serialize(inputs))
         inference_response = await self.stub.LogProbs(request)
-        # print("Inference response:", inference_response.data)
-        return pickle.loads(inference_response.data)
-    
+        return common_deserialize(inference_response.data)
+
     def update_weight(self, weights):
-        request = predictor_pb2.UpdateWeightReq(weight=pickle.dumps(weights))
-        inference_response = self.stub.UpdateWeight(request)
-        # print("Inference response:", inference_response.data)
-        return 
+        def tfunc(stub, weights):
+            return stub.UpdateWeight(predictor_pb2.UpdateWeightReq(weight=pickle.dumps(weights)))
+        return tfunc(self.stub, weights)
 
 def convert_to_batch_state(states):
     assert len(states) > 0
@@ -96,7 +94,7 @@ def convert_to_batch_state(states):
         else:
             batch_state_dict[key] = np.stack([s[key] for s in states])
     return batch_state_dict
-            
+
 def split_outputs(results):
     outputs = []
     for key, value in results.items():
@@ -107,7 +105,7 @@ def split_outputs(results):
                     outputs[i][key] = inner_output
                 else:
                     outputs.append({key: inner_output})
-        elif isinstance(value, Tensor):
+        elif isinstance(value, np.ndarray):
             rows = np.split(value, len(value))
             for i, row in enumerate(rows):
                 row = np.squeeze(row)
@@ -125,18 +123,14 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
     def __init__(self, model, *args, **kwargs):
         self._data_queue = asyncio.Queue()
         self._model = model
-        self.batch_size = 32
+        self.batch_size = 8
         self.start_time = None
-        self.timeout = 25
+        self.timeout = 10
         self.times = 0
-        print('inits')
         super().__init__(*args, **kwargs)
-        print('inits over')
-        
+
     async def Inference(self, request, context):
-        self.times += 1   
-        t = self.times
-        # data = ''
+        self.times += 1
         a = timeit.default_timer()
         future = asyncio.Future()
         await self._data_queue.put([common_deserialize(request.data), future])
@@ -146,73 +140,98 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
         rsp = predictor_pb2.InferenceRsp(err_code=int((b-a)*1000), err_msg=f'latency : {(b-a)* 1000}')
         rsp.data.CopyFrom(rsp_data)
         return rsp
-    
-    # async def Inference(self, request, context):
-    #     self.times += 1   
-    #     t = self.times
-    #     data = self._model(pickle.loads(request.data))
-    #     rsp = predictor_pb2.InferenceRsp(data=pickle.dumps(data), err_msg=f'success: {t}')
-    #     return rsp
-    
-    async def LogProbs(self, request, context):
-        t = self.times
-        inputs = pickle.loads(request.data) 
-        output = self._model.log_probs(*inputs)
-        rsp = predictor_pb2.InferenceRsp(data=pickle.dumps(output), err_msg=f'success: {t}')
-        return rsp
 
-    def UpdateWeight(self, request, context):
+    # def Inference1(self, request, context):
+    #     self.times += 1
+    #     t = self.times
+    #     data = self._model(auto_move(common_deserialize(request.data), 'cuda'))
+    #     rsp = predictor_pb2.InferenceRsp(data=common_serialize(data), err_msg=f'success: {t}')
+    #     return rsp
+
+    # async def LogProbs(self, request, context):
+    #     t = self.times
+    #     inputs = common_deserialize(request.data)
+    #     data = self._model._network.log_probs(*inputs.values())
+    #     rsp = predictor_pb2.InferenceRsp(data=common_serialize(data), err_msg=f'success: {t}')
+    #     return rsp
+
+    async def UpdateWeight(self, request, context):
         # self._model.update_weight(request.model_name, request.weights)
-        self._model.load_state_dict(pickle.loads(request.weight))
+        state_dict = pickle.loads(request.weight)
+        print(f"state dict is {state_dict.keys()}")
+        self._model._network.load_state_dict(state_dict)
         response = predictor_pb2.UpdateWeightRsp(
+            weight = pickle.dumps(self._model._network.state_dict()),
             err_code=0,
             err_msg="Weights updated"
         )
+        print("Updated weights finished")
         return response
 
     async def start_batch_inference(self):
         requests = []
         while True:
-            try : 
+            try :
                 while len(requests) < self.batch_size:
                     if len(requests) == 0 or not self.start_time:
                         self.start_time = time.time()
-                    diff = time.time() - self.start_time 
+                    diff = time.time() - self.start_time
                     if diff * 1000 < self.timeout:
                         try:
                             a = time.perf_counter()
-                            tmp_timeout = (self.timeout/1000 - diff) if len(requests) else 10
-                            # tmp_timeout = 0.01 if len(requests) else 1
-                            request = await asyncio.wait_for(self._data_queue.get(), timeout=tmp_timeout) 
+                            tmp_timeout = 0.9 * (self.timeout/1000 - diff) if len(requests) else 10
+                            def prints():
+                                # print('await for')
+                                pass
+                            prints()
+                            request = await asyncio.wait_for(self._data_queue.get(), timeout=tmp_timeout)
+                            # request = self._data_queue.get_nowait()
                             requests.append(request)
-                            # print('appends ok')
+                            if len(requests) == 1:
+                                self.start_time = time.time()
                         except Exception as e:
-                        # except asyncio.exceptions.TimeoutError as e:
-                            # print(f'error is {e}')
-                            # b = time.perf_counter()
-                            # print(f"[{e}] wait for eplased time is {1000*(b-a):.2} ms, set timeout is {1000*tmp_timeout}ms")
-                            # print(f'starttime: {self.start_time}, wating timeout : {len(requests)} diff is {diff *1000} sleep for {1000 * (self.timeout/1000 - diff) if len(requests) else 10 * 1000}')
+                            # await asyncio.sleep(0.005)
                             pass
-                    else:
+                    elif len(requests) > 0:
                         break
-                # print(f'check batch! {len(requests)} eplased time is {diff * 1000}ms')
-                
-                
-                atime = timeit.default_timer() * 1000
-                inputs = convert_to_batch_state([it[0] for it in requests])
-                auto_move(inputs, 'cuda')
-                btime = timeit.default_timer() * 1000
-                results = self._model(inputs)     
-                ctime = timeit.default_timer() * 1000
-                results = split_outputs(results)
-                dtime = timeit.default_timer() * 1000
-                print(f"{time.time() * 1000 % 60000} batch {len(requests)} infer time: {round(btime - atime, 2)} {round(ctime - btime, 2)} {round(dtime - ctime, 2)}")
-                
-                for idx, (request, future) in enumerate(requests):
-                    result = results[idx]
-                    if not future.cancelled() and not future.done():
-                        future.set_result(result)
-                # print('set result over!!!!!')
+                '''
+                now = time.time() * 1000
+                qsize = self._data_queue.qsize()
+                # print(f'qsize is {qsize}')
+                if qsize >= self.batch_size:
+                    requests = [self._data_queue.get_nowait() for i in range(qsize)]
+                    # print('manzu le jixu')
+                elif qsize > 0:
+                    if not self.start_time:
+                        self.start_time = now
+                        await asyncio.sleep(0.0001)
+                        continue
+                    elif now - self.start_time * 1000 > self.timeout:
+                        # print('超时了 jixu')
+                        requests = [self._data_queue.get_nowait() for i in range(qsize)]
+                    else :
+                        await asyncio.sleep(0.0001)
+                        continue
+                else:
+                    await asyncio.sleep(0.0001)
+                    continue
+                '''
+                # print(requests)
+
+
+                # print(f'check batch! {len(requests)} eplased time is {(time.time() - self.start_time) * 1000}ms')
+
+                def batch_inference(requests):
+                    inputs = convert_to_batch_state([it[0] for it in requests])
+                    # auto_move(inputs, 'cuda')
+                    results, _ = self._model.inference(inputs)
+                    results = split_outputs(results)
+                    # results = [{} for i in requests]
+                    for idx, (_, future) in enumerate(requests):
+                        result = results[idx]
+                        if not future.cancelled() and not future.done():
+                            future.set_result(result)
+                batch_inference(requests)
                 self.start_time = time.time()
                 requests = []
             except Exception as e :
@@ -220,21 +239,24 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
                 raise e
 
 async def serve(model):
+    from concurrent import futures
     server = grpc.aio.server()
     service = PredictorServiceServicer(model)
     predictor_pb2_grpc.add_PredictorServiceServicer_to_server(service, server)
     server.add_insecure_port('[::]:50051')
     await server.start()
     batch_inference = asyncio.create_task(service.start_batch_inference())
-    # batch_inference = asyncio.create_task(service.start_batch_logprobs())
-    def callback(feture):
+    def callback(future):
         print("batch inference exception!!!")
-        exit(-1) 
+        exit(-1)
     batch_inference.add_done_callback(callback)
     await server.wait_for_termination()
 
-if __name__ == '__main__':
-    # import tracemalloc
-    # tracemalloc.start()
+def main():
+    from local.net import get_model
     print("prepate to server")
-    asyncio.run(serve())
+    asyncio.run(serve(get_model()))
+
+if __name__ == '__main__':
+    import cProfile
+    cProfile.run('main()','restats')

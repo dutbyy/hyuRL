@@ -8,7 +8,7 @@
   "python.analysis.extraPaths": [
     "/root/cloud-depends/drill",
     "/root/torch-depends/",
-    "/root/cloud-depends"
+    "./depends",
   ],
   "python.analysis.stubPath": "typings",
   "python.REPL.enableREPLSmartSend": false,

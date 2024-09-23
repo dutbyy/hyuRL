@@ -9,7 +9,7 @@ class CategoricalDecoder(Decoder):
     Decoder for handling discrete actions.
     """
 
-    def __init__(self, n, hidden_layer_sizes, activation='relu', temperature=0.95):
+    def __init__(self, n, hidden_layer_sizes, activation='relu', temperature=1.0):
         super().__init__()
         self._n = n
         self._temperature = temperature
@@ -45,5 +45,5 @@ class CategoricalDecoder(Decoder):
 
     def distribution(self, logits):
         # print(f"dist logits is {logits}")
-        return Categorical(logits=torch.Tensor(logits) / self._temperature)
+        return Categorical(logits=logits/self._temperature)
     

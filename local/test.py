@@ -1,4 +1,7 @@
 import concurrent.futures
+from typing import Dict
+import numpy as np
+import torch
 import multiprocessing
 from fsspec import Callback
 import grpc
@@ -7,6 +10,27 @@ from proto import predictor_pb2
 from proto import predictor_pb2_grpc
 import asyncio
 
+def common_serialize(data: Dict[str, np.ndarray]) -> bytes:
+    np_list = predictor_pb2.NumpyList()
+    def serialize_item(item, pre_name=None):
+        for k, v in item.items():
+            current_name = f"{pre_name}.{k}" if pre_name is not None else k
+            if isinstance(v, torch.Tensor):
+                v = v.cpu().detach().numpy()
+            if isinstance(v, dict):
+                serialize_item(v, pre_name=f'{current_name}')
+            elif v is None :
+                continue
+            else:
+                np_item = predictor_pb2.NumpyData(
+                    name = current_name,
+                    dtype = str(v.dtype),
+                    array_data = np.array(v).tobytes(),
+                    shape = v.shape,
+                )
+                np_list.np_arrays.append(np_item)
+    serialize_item(data)
+    return np_list
 
 class AsyncGRPCCaller:
     """A class for making asynchronous gRPC calls."""
@@ -29,7 +53,9 @@ class AsyncGRPCCaller:
         self.stub = predictor_pb2_grpc.PredictorServiceStub(self.channel)
 
     async def make_request(self):
-        request = predictor_pb2.InferenceReq()
+        request = predictor_pb2.InferenceReq(data=common_serialize(
+            {"feature_a": torch.rand(4)}
+        ))
         response = await self.stub.Inference(request)
         return response.err_msg
     
@@ -73,5 +99,8 @@ def start_threads(num_threads):
 if __name__ == '__main__':
     import time
         # time.sleep(.1)
-    main()
+    try:
+        main()
+    except:
+        pass
     # start_threads(1)

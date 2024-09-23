@@ -1,11 +1,5 @@
 from multiprocessing import Process
-from src.tools.common import timer_decorator
 import torch
-import logging
-logger = logging.getLogger('my_logger')
-logger.setLevel(logging.INFO)
-
-
 
 from local.sampler import Sampler
 from local.trainer import LocalTrainer
@@ -21,31 +15,13 @@ import pickle
 class Controller:
     def __init__(self) -> None:
         self.batch_size = 1024 * 4
-        self.__init_logger()
 
-    def __init_logger(self):
-        self.logger = logging.getLogger(f"model_learn")
-        self.logger.setLevel(10)
-        if not self.logger.handlers:
-            try:
-                handler = logging.FileHandler(f"./model_learn.log")
-            except:
-                handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                '[%(asctime)s] [%(filename)s:%(lineno)d] %(message)s'
-                # '[%(name)s] [%(asctime)s] [%(filename)s:%(lineno)d] %(message)s'
-            )
-            handler.setFormatter(formatter)#logging.Formatter('[%(name)s] [%(asctime)s] [%(filename)s:%(lineno)s] %(message)s', datefmt='%y-%m-%d %H:%M:%S'))
-            self.logger.addHandler(handler)
-            handler =  logging.StreamHandler()
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
-
-        self.logger.info('Logger Init Finished')
-
+    def print_info(self, train_step=0):
+        print(f"trainning {train_step}")
+        pass
 
     def eval(self, policy_config):
-        delayed_policy = {"class": PPOPolicy, "params": {"network_config": policy_config, 'device': 'cpu' }}
+        delayed_policy = {"class": PPOPolicy, "params": {"policy_config": policy_config, 'device': 'cpu' }}
         self.sampler = Sampler(delayed_policy=delayed_policy, num_processes=1)
 
         self.sampler.start_sampling()
@@ -54,12 +30,19 @@ class Controller:
             train_step += 1
             train_data = self.generate_data()
 
-    @timer_decorator
+
     def train_run(self, policy_config):
-        delayed_policy = {"class": PPOPolicy, "params": {"network_config": policy_config, 'device': 'cpu' }}
+
+
+        # self.predict_server = Process(target=predictor_server, args=(policy_config, ))
+        # # self.predict_server.daemon = True
+        # self.predict_server.start()
+
+
+        delayed_policy = {"class": PPOPolicy, "params": {"policy_config": policy_config, 'device': 'cpu' }}
         self.sampler = Sampler(delayed_policy=delayed_policy, num_processes=4)
 
-        delayed_policy = {"class": PPOPolicy, "params": {"network_config": policy_config, 'device': 'cpu', "trainning": True}}
+        delayed_policy = {"class": PPOPolicy, "params": {"policy_config": policy_config, 'device': 'cpu', "trainning": True}}
         self.trainer = LocalTrainer(delayed_policy=delayed_policy)
         self.predict_client = PredictorClient('localhost', 50051, False)
 
@@ -68,20 +51,21 @@ class Controller:
         while True:
             train_step += 1
             train_data = self.generate_data()
-            eplased_times = self.trainer.train(train_data)
-            # print('每次迭代耗时', eplased_times)
+            self.trainer.train(train_data)
             # self.sampler.set_weight(self.trainer.get_state_dict())
             ret = self.predict_client.update_weight(self.trainer.get_state_dict())
+            print(f"step: {train_step} update weight over ")
 
-            self.logger.info(f"step: {train_step} update weight over ")
-
-    @timer_decorator
     def generate_data(self):
         fragements = self.sampler.get_batch(self.batch_size)
         buffer = Memory()
         import timeit
+        #print("prepare for buffer")
+        atime = timeit.default_timer() * 1000
         for frg in fragements:
             buffer.fstore(frg)
+        btime = timeit.default_timer() * 1000
+        #print(f'make buffer eplased time {round(btime - atime, 2)} ms')
         train_data = buffer.get_batch(self.batch_size)
 
         return train_data
@@ -126,8 +110,7 @@ if __name__ == '__main__':
         }
     }
     controller = Controller()
-    controller.train_run(network_cfg)
-    # controller.eval(network_cfg)
+    controller.eval(network_cfg)
 
 
 

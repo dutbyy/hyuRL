@@ -1,7 +1,13 @@
 from typing import List
 
-def calculate_gae(reward_list: List[float], value_estimates: List[float], 
-                   dones: List[bool], gamma: float = 0.99, lamb: float = 0.95) -> List[float]:
+
+def calculate_gae(
+    reward_list: List[float],
+    value_estimates: List[float],
+    dones: List[bool],
+    gamma: float = 0.99,
+    lamb: float = 0.95,
+) -> List[float]:
     """计算广义优势估计 (Generalized Advantage Estimation, GAE)
 
     Parameters
@@ -33,4 +39,3 @@ def calculate_gae(reward_list: List[float], value_estimates: List[float],
         advantage = delta + gamma * lamb * advantage * non_terminate
         advantages.append(advantage)
     return list(reversed(advantages))
-

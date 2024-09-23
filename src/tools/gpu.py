@@ -2,11 +2,12 @@ import numpy as np
 import torch
 from src.memory.buffer import Fragment
 
+
 def auto_move(data, device):
     if isinstance(data, torch.Tensor):
         return data.to(device)
     if isinstance(data, np.ndarray):
-        return torch.Tensor(data).to(device)
+        return torch.as_tensor(data.copy(), device=device)
     if isinstance(data, np.floating):
         return data
     elif isinstance(data, dict):
@@ -18,10 +19,6 @@ def auto_move(data, device):
     elif isinstance(data, Fragment):
         data.__dict__ = auto_move(data.__dict__, device)
         return data
-    else : 
+    else:
         return data
         # raise ValueError(f"Automove unsupport Type of value : {type(data)}")
-        
-
-        
-    

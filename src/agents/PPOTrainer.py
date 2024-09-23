@@ -2,11 +2,9 @@
 from network.template import TemplateNetwork
 from loss.ppo import PPOLoss
 import torch
-from torch import nn
 from torch import optim
 import gym
 from tools.gae import calculate_gae
-import logging
 
 is_cuda = torch.cuda.is_available()
 is_cuda = False
@@ -16,14 +14,12 @@ torch.autograd.set_detect_anomaly(True)
 class PPOTrainer:
     def __init__(self, *args):
         self._network = TemplateNetwork(*args)
-        # print("!!!!", next(self._network.parameters()).is_cuda)
         self._network.to(device)
-        # print('~~~~', next(self._network.parameters()).is_cuda)
         self._optimizer = optim.Adam(self._network.parameters(), lr=1e-4)
         self._loss_fn = PPOLoss()
-        self.clean_data()
+        self.__reset_data()
         
-    def clean_data(self):
+    def __reset_data(self):
         self.input_dict = {
             "common_encoder": []
         }
@@ -35,6 +31,7 @@ class PPOTrainer:
             "done": [],
             "decoder_mask": []
         }
+        
         
     def inference(self, state):
         inputs = {"common_encoder": torch.Tensor(state)}
@@ -143,7 +140,7 @@ class PPOTrainer:
             # "kl": kl,
         }
         # print(f"policy loss : {policy_loss}, value_loss : {value_loss}, entropy: {entropy}, loss: {loss}")
-        # self.clean_data()
+        self.__reset_data()
         return summary
             
             
@@ -222,4 +219,3 @@ if __name__ == '__main__':
             state = nstate
         for i in range(1):
             agent.train()    
-            agent.clean_data()

@@ -52,7 +52,7 @@ def construct_dag(config_dict, model_dict):
 
 
 class ComplexNetwork(nn.Module):
-    ''' 
+    '''
     模板化的神经网络
     '''
     
@@ -68,7 +68,7 @@ class ComplexNetwork(nn.Module):
 
     def forward(self, input_dict: dict, behavior_action_dict = None, training = False):
         # print("input_dict", input_dict)
-        input_dict = {k: torch.Tensor(v) for k, v in input_dict.items()}
+        # input_dict = {k: torch.Tensor(v) for k, v in input_dict.items()}
         decoder_output = {}
         predict_output_dict = OrderedDict({
             VALUE: None,
@@ -103,10 +103,10 @@ class ComplexNetwork(nn.Module):
             elif isinstance(sub_model, Aggregator):
                 # inputs = torch.concat(inputs, -1)
                 # print(inputs.shape)
-                hidden_state = input_dict.get(HIDDEN_PREFIX + node_name, None)
+                hidden_state = input_dict.get(HIDDEN_PREFIX + node_name, torch.ones(inputs[0].shape[0], 10))
                 episode_done = input_dict.get(DONE, None)
-                if hidden_state is not None and episode_done is not None :
-                    hidden_state = hidden_state * (1 - torch.expand_dims(episode_done, axis=-1))
+#                 if hidden_state is not None and episode_done is not None :
+#                     hidden_state = hidden_state * (1 - torch.unsqueeze(episode_done, axis=-1))
                 output, output_hidden_state = sub_model(inputs, initial_state = hidden_state, training=training)
                 # predict_output_dict[HIDDEN_PREFIX + node_name] = output_hidden_state
                 predict_output_dict[HIDDEN_STATE][node_name] = output_hidden_state
@@ -165,28 +165,29 @@ class ComplexNetwork(nn.Module):
         return None
 
     def log_probs(self, logits_dict, action_dict, decoder_mask):
-        '''  
-        J(θ)关于θ的梯度, 等价于 logp * R的梯度在πθ下的期望 
+        '''
+        J(θ)关于θ的梯度, 等价于 logp * R的梯度在πθ下的期望
         '''
         log_prob_dict = {}
         for action_name, action in action_dict.items():
             decoder = self.sub_model_dict[action_name]
-            distribution = decoder.distribution(torch.as_tensor(logits_dict[action_name]))
-            action_mask = torch.as_tensor(decoder_mask[action_name].squeeze())
-            logp = distribution.log_prob(torch.as_tensor(action)).squeeze()
-            logp = logp *  action_mask
+            distribution = decoder.distribution(logits_dict[action_name])
+            # action_mask = torch.as_tensor(decoder_mask[action_name].squeeze())
+            logp = distribution.log_prob(action).squeeze()
+            # logp = logp *  action_mask
             log_prob_dict[action_name] = logp
         return log_prob_dict
     
     def entropy(self, logits_dict, decoder_mask):
         '''
-        计算每个动作的概率分布的熵 
+        计算每个动作的概率分布的熵
         '''
         entropy_dict = {}
         for action_name, logits in logits_dict.items():
             decoder = self.sub_model_dict[action_name]
             distribution = decoder.distribution(torch.as_tensor(logits))
-            entropy_dict[action_name] = torch.squeeze(distribution.entropy()) * torch.as_tensor(decoder_mask[action_name])
+            entropy_dict[action_name] = torch.squeeze(distribution.entropy())
+#             entropy_dict[action_name] = torch.squeeze(distribution.entropy()) * torch.as_tensor(decoder_mask[action_name])
         return entropy_dict
     
     def kl(self, logits_dict, other_logits_dict, decoder_mask):

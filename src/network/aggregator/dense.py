@@ -20,10 +20,10 @@ class DenseAggregator(Aggregator):
                 inputs: List[torch.Tensor],
                 initial_state=None,
                 seq_len: int = 1, training:bool=False) -> Tuple[torch.Tensor, None]:
-        del initial_state, seq_len  # Unused by forward
+        # del initial_state, seq_len  # Unused by forward
         concat_features = torch.cat(inputs, dim=-1)
         # for logits in inputs:
         #     print('logit ', logits.device)
         # print('cct feat', concat_features, concat_features.device)
         outputs = self._dense_sequence(concat_features)
-        return outputs, None
+        return outputs, initial_state

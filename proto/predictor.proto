@@ -27,8 +27,9 @@ message UpdateWeightReq {
 }
 
 message UpdateWeightRsp {
-    int32       err_code = 1;
-    string      err_msg = 2;
+    bytes       weight = 1;
+    int32       err_code = 2;
+    string      err_msg = 3;
 }
 
 // 定义一个服务和两个接口
