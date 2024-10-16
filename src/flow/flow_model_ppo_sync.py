@@ -8,7 +8,6 @@ import drill
 import numpy as np
 import tree
 import torch
-import tensorflow as tf
 
 from drill import summary
 from drill.flow import flow
@@ -21,18 +20,17 @@ import traceback
 if TYPE_CHECKING:
     from drill.builder import Builder
 
-
 class Clocker:
     def __init__(self):
         self.time_lis = []
-    
+
     def tick(self):
         self.time_lis.append(timeit.default_timer() * 1000)
-    
+
     def show(self, logger):
         show_str = ', '.join( [f'{round(j-i, 1)} ms' for i, j in zip(self.time_lis[:-1], self.time_lis[1:])])
         logger.info(f"eplased times: {show_str}")
-    
+
 # 定义一个递归函数来处理嵌套结构
 def trans2tensor(nested_structure):
     if torch.cuda.is_available():

@@ -1,13 +1,9 @@
 import os
-from flow_env_ppo_sync import FlowEnvPPOSync as FlowEnvPPO
-from flow_model_ppo_sync import FlowModelPPOSync
+from .flow_env_ppo_sync import FlowEnvPPOSync as FlowEnvPPO
+from .flow_model_ppo_sync import FlowModelPPOSync
 import numpy as np
 import time
 from typing import Dict
-import tensorflow as tf
-gpus= tf.config.experimental.list_physical_devices('GPU')
-for gpu in gpus:
-    tf.config.experimental.set_memory_growth(gpu, True)
 
 class EnvDescribe:
     def __init__(self, builder, extra_info = {}):
@@ -34,9 +30,11 @@ def add_batch(input_dict):
     }
     return output_dict
 
-def init_model_env(builder, model_path_dict = {}):
+def init_env(builder, model_path_dict={}):
     flow_env = FlowEnvPPO(EnvDescribe(builder))
-    print("init flow env over")
+    return flow_env
+
+def init_model(builder, model_path_dict = {}):
 
     print('constructing model')
     print(f"builder.model_names : {builder.model_names}")
@@ -59,7 +57,7 @@ def init_model_env(builder, model_path_dict = {}):
             print(f"加载模型 : {model_path}")
             flow_model.load_weights(model_path, 'tensorflow', 'npz')
 
-    return flow_env, name2model
+    return name2model
 
 def inference(flow_env, name2model):
     while True:

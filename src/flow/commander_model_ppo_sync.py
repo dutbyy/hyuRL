@@ -5,10 +5,10 @@ from drill.utils import get_hvd, tf_normalize_advantage
 import timeit
 import torch
 import tree
-from src.network import ComplexNetwork
-from src.loss.ppo import PPOLoss
+from hyuRL.src.network import ComplexNetwork
+from hyuRL.src.loss.ppo import PPOLoss
 import numpy as np
-import traceback 
+import traceback
 
 class PPOPolicyModel(Model):
     def __init__(self,
@@ -25,7 +25,7 @@ class PPOPolicyModel(Model):
 
         hvd = get_hvd("pytorch")
         hvd.init()
-        
+
     @property
     def network(self):
         return self._network
@@ -34,7 +34,7 @@ class PPOPolicyModel(Model):
         with torch.no_grad():
             outputs = self._network(state_dict)
         return outputs
-            
+
     def learn(self, inputs_dict: Dict[str, Any], behavior_info_dict: Dict[str,Any], episode=10) -> Dict[str, Any]:
         import time
         eplased_times = []
@@ -52,7 +52,7 @@ class PPOPolicyModel(Model):
 #         old_logp_dict = behavior_info_dict.get("log_probs")
 #         old_logp = sum(
 #             old_logp_dict.values()
-#         ) 
+#         )
 #         self.logger.info(f"input dict is : {inputs_dict}")
 #         self.logger.info(f"behavior_action_dict is : {behavior_action_dict}")
         with torch.no_grad():
@@ -98,7 +98,7 @@ class PPOPolicyModel(Model):
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self._network.parameters(), 40.0)
             self._optimizer.step()
-            
+
             btime = time.time() * 1000
             eplased_times.append(round(btime-atime, 1))
         self.logger.info(f"learner eplased_time: {eplased_times}")

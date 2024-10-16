@@ -5,7 +5,7 @@ from torch import nn
 from torch.nn import functional as F
 from typing import TYPE_CHECKING, Any, Dict, List, Callable, OrderedDict
 
-from src.network import Encoder, Decoder, Aggregator, ValueApproximator
+from hyuRL.src.network import Encoder, Decoder, Aggregator, ValueApproximator
 
 HIDDEN_PREFIX = '__hidden_state_'
 EMBEDING_PREFIX = '__embedding_'
@@ -40,7 +40,7 @@ def construct_dag(config_dict, model_dict):
     dag = nx.DiGraph() # 构造有向图
     for sub_model_name, sub_model_config in config_dict.items():
         sub_model = model_dict[sub_model_name]
-        sub_model.name = sub_model_name 
+        sub_model.name = sub_model_name
         inputs = sub_model_config.get('inputs', [])
         if not isinstance(inputs, List):
             inputs = [inputs]
@@ -55,11 +55,11 @@ class ComplexNetwork(nn.Module):
     '''
     模板化的神经网络
     '''
-    
+
     def __init__(self, network_config):
         super().__init__()
         self._network_config = network_config
-        
+
         self.sub_model_dict = nn.ModuleDict({name: construct(submodel_config) for name, submodel_config in self._network_config.items()})
         dag, top_generator =  construct_dag(self._network_config, self.sub_model_dict)
         self._dag = dag
@@ -78,7 +78,7 @@ class ComplexNetwork(nn.Module):
         })
 
         # if aggregator_state:
-            # predict_output_dict[HIDDEN_STATE] = aggregator_state 
+            # predict_output_dict[HIDDEN_STATE] = aggregator_state
         for node_name in self.top_sorted:
             # print(f"now in {node_name}, {input_dict.keys()}")
             if node_name not in self.sub_model_dict:
@@ -116,18 +116,18 @@ class ComplexNetwork(nn.Module):
                 inputs = torch.concat(inputs, -1)
                 value = sub_model(inputs)
                 predict_output_dict[VALUE] = value
-                
+
             elif isinstance(sub_model, Decoder):
                 # inputs = sum(inputs) / len(inputs)
                 inputs = torch.concat(inputs, -1)
                 source_encoder_name = sub_model_config.get("source_encoder_name", None)
-                if source_encoder_name: 
+                if source_encoder_name:
                     source_embeddings = input_dict[EMBEDING_PREFIX + source_encoder_name]
                 else:
                     source_embeddings = input_dict.get("default_source_embeddings", self._default_source_embeddings)
-                
+
                 mask_config = sub_model_config.get("mask", None)
-                
+
                 if not mask_config:
                     mask = None
                 elif isinstance(mask_config, str):
@@ -137,13 +137,13 @@ class ComplexNetwork(nn.Module):
                 else:
                     raise ValueError(f"Unknown mask type : {type(mask_config)}")
                 # print(f"behavior_action_dict is {behavior_action_dict}")
-                behavior_action = behavior_action_dict[node_name] if behavior_action_dict else None 
+                behavior_action = behavior_action_dict[node_name] if behavior_action_dict else None
                 # print(f"behavior_action is {behavior_action}")
-                logits, action, embeddings = sub_model([inputs, source_embeddings], 
-                                                        action_mask=mask, 
-                                                        behavior_action=behavior_action)    
+                logits, action, embeddings = sub_model([inputs, source_embeddings],
+                                                        action_mask=mask,
+                                                        behavior_action=behavior_action)
                 input_dict[node_name] = embeddings
-                input_dict[LOGITS_PREFIX + node_name] = logits 
+                input_dict[LOGITS_PREFIX + node_name] = logits
                 input_dict[ACTION_PREFIX + node_name] = action
                 decoder_output[node_name]= {
                     "logits": logits,
@@ -151,14 +151,14 @@ class ComplexNetwork(nn.Module):
                 }
                 predict_output_dict[LOGITS][node_name] = logits
                 predict_output_dict[ACTION][node_name] = action
-            
+
             else:
                 print("Unsupport Submodel")
-                
+
         # print(f"input_dict is {input_dict.keys()}")
         # print(f"output_dict is {predict_output_dict.keys()}")
-        return predict_output_dict       
-            
+        return predict_output_dict
+
     def get_aggregator_init_state(self):
         if callable(getattr(self._aggregator, "get_initial_state")):
             return self._aggregator.get_initial_state()
@@ -177,7 +177,7 @@ class ComplexNetwork(nn.Module):
             # logp = logp *  action_mask
             log_prob_dict[action_name] = logp
         return log_prob_dict
-    
+
     def entropy(self, logits_dict, decoder_mask):
         '''
         计算每个动作的概率分布的熵
@@ -189,39 +189,39 @@ class ComplexNetwork(nn.Module):
             entropy_dict[action_name] = torch.squeeze(distribution.entropy())
 #             entropy_dict[action_name] = torch.squeeze(distribution.entropy()) * torch.as_tensor(decoder_mask[action_name])
         return entropy_dict
-    
+
     def kl(self, logits_dict, other_logits_dict, decoder_mask):
         with torch.no_grad():
             kl_dict = {
                 action_name: F.softmax(logits) * (F.log_softmax(logits) - F.log_softmax(other_logits_dict[action_name]))
-                for action_name, logits in logits_dict.items() 
+                for action_name, logits in logits_dict.items()
             }
         return kl_dict
-    
+
     def _aggregate(self, aggregator, input_dict, encoder_output_dict, hidden_state_key, training):
         encoder_output_list = list(encoder_output_dict.values())
         hidden_state = input_dict.get(hidden_state_key, None)
         episode_done = input_dict.get(DONE, None)
-        
+
         if hidden_state is not None and episode_done is not None :
             hidden_state = hidden_state * (1 - torch.expand_dims(episode_done, axis=-1))
-            aggregator_output, aggregator_state = aggregator(encoder_output_list, 
+            aggregator_output, aggregator_state = aggregator(encoder_output_list,
                                                             initial_state = hidden_state,
                                                             training = training)
         return aggregator_output, aggregator_state
-   
+
 
 if __name__ == '__main__':
     from src.network.encoder.common import CommonEncoder
     from src.network.decoder.categorical import CategoricalDecoder
     from src.network.app_value import ValueApproximator
     from src.network.aggregator.dense import DenseAggregator
-    
+
     network_cfg = {
         "encoder_demo" : {
             "class": CommonEncoder,
             "params": {
-                "in_features" : 128, 
+                "in_features" : 128,
                 "hidden_layer_sizes": [256, 128],
                 # "out_features": 64,
             },
@@ -230,7 +230,7 @@ if __name__ == '__main__':
         "aggregator": {
             "class": DenseAggregator,
             "params": {
-                "in_features" : 128, 
+                "in_features" : 128,
                 "hidden_layer_sizes": [256, 128],
                 "output_size": 256
             },
@@ -239,7 +239,7 @@ if __name__ == '__main__':
         "value_app": {
             "class": ValueApproximator,
             "params": {
-                "in_features" : 256, 
+                "in_features" : 256,
                 "hidden_layer_sizes": [256, 128],
             },
             "inputs": ['aggregator']
