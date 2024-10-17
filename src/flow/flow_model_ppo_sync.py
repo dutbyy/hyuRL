@@ -32,12 +32,15 @@ class Clocker:
         logger.info(f"eplased times: {show_str}")
 
 # 定义一个递归函数来处理嵌套结构
-def trans2tensor(nested_structure):
-    if torch.cuda.is_available():
-        return tree.map_structure(lambda x: torch.from_numpy(x.numpy()).cuda(), nested_structure)
-    else:
+def trans2tensor(nested_structure):   
+    try: 
+        if torch.cuda.is_available():
+            return tree.map_structure(lambda x: torch.from_numpy(x.numpy()).cuda(), nested_structure)
+        else:
+            return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
+    except:
         return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
-
+    
 class FlowModelPPOSync(flow.Model):
 
     def __init__(self, model_name: str, builder: Builder):
