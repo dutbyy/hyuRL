@@ -136,7 +136,7 @@ class PPOTrainer:
             # "value_loss": value_loss.item(),
             # "entropy": entropy.item(),
             # "advantage": advantage.mean().item(),
-            # KL散度在PyTorch中的计算可能需要自定义实现，这里省略了
+            # KL散度在PyTorch中的计算可能需要自定义实现, 这里省略了
             # "kl": kl,
         }
         # print(f"policy loss : {policy_loss}, value_loss : {value_loss}, entropy: {entropy}, loss: {loss}")
