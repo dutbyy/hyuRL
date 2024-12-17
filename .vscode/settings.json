@@ -6,9 +6,9 @@
   "python.analysis.autoImportCompletions": true,
   "python.analysis.importFormat": "absolute",
   "python.analysis.extraPaths": [
-    "/root/cloud-depends/drill",
     "/root/torch-depends/",
-    "./depends",
+    "./pythonlib",
+    "/root/cloud-depends/drill",
   ],
   "python.analysis.stubPath": "typings",
   "python.REPL.enableREPLSmartSend": false,

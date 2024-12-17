@@ -39,7 +39,6 @@ class GaussianDecoder(Decoder):
 
         if behavior_action is None:
             behavior_action = distribution.sample()
-        print("behavior_action: ", behavior_action)
         # 获取行为动作的嵌入表示
         behavior_action_embedding = self.action_embedding(behavior_action)
         # 计算自回归嵌入，结合行为动作嵌入和输入
