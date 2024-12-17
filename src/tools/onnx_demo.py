@@ -1,18 +1,12 @@
-from multiprocessing import dummy
 
-from grpc import dynamic_ssl_server_credentials
-from sympy import true
-from src.network import *
-from src.algo.PPOPolicy import PPOPolicy
-from src.tools.common import construct, timer_decorator
+# from src.network import *
+from src.tools.common import construct
 import torch
 from src.network.complex import ComplexNetwork
 from collections import OrderedDict
 
 
 def main1():
-    model = construct(delayed_policy)
-
     network_cfg = {
         "encoder_demo": {
             "class": CommonEncoder,
@@ -79,8 +73,8 @@ def main1():
 
     dynamic_axes = {
         "feature_a": {0: "batch", 1: "feature_a"},
-        "feature_b": {0: "batch", 1: "feature_a"},
-        "feature_c": {0: "batch", 1: "feature_a"},
+        "feature_b": {0: "batch", 1: "feature_b"},
+        "feature_c": {0: "batch", 1: "feature_c"},
     }
     model = construct(delayed_policy)
     dummy_input = OrderedDict()
@@ -100,24 +94,19 @@ def main1():
     ]
     # output_names=output_names,
     print(dummy_input)
-    torch.onnx.export(
+    # torch.onnx.export(
+    #     model,
+    #     (dummy_input, None),
+    #     "./model.onnx",
+    #     verbose=True,
+    #     input_names=input_names,
+    #     output_names=output_names,
+    #     dynamic_axes=dynamic_axes,
+    # )
+    torch.onnx.dynamo_export(
         model,
-        (dummy_input, None),
-        "./model.onnx",
-        verbose=False,
-        input_names=input_names,
-        output_names=output_names,
-        dynamic_axes=dynamic_axes,
-    )
-    # import io
-    # buffer = io.BytesIO()
-    # torch.onnx.export(model, (dummy_input, None),  buffer,
-    #                   verbose=False,
-    #                   input_names=input_names,
-    #                   output_names = output_names,
-    #                   dynamic_axes=dynamic_axes)
-    # return buffer
-
+        (dummy_input, None)
+    ).save("dynamo_model.onnx")
 
 def main2():
     import onnx
@@ -136,7 +125,6 @@ def main2():
     print(input_name)
     print([i.name for i in out_names])
     print(ort_outputs)
-
 
 def main3(buffer):
     import onnx
@@ -159,7 +147,6 @@ def main3(buffer):
     print(input_name)
     print([i.name for i in out_names])
     print(ort_outputs)
-
 
 def main4():
     from torchview import draw_graph
@@ -246,8 +233,24 @@ def main4():
 
 
 if __name__ == "__main__":
+    fix_print()
     # buffer = main()
+    main1()
     # main2()
 
     # main3(buffer)
-    main4()
+    # main4()
+
+def fix_print():
+    import builtins
+    import os
+    origin_print = builtins.print
+    def custom_print(*args, **kwargs):
+        import datetime
+        import inspect
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        caller = inspect.getframeinfo(inspect.stack()[1][0])
+        prefix = f"[{timestamp}] [{os.path.basename(caller.filename)}:{caller.lineno}]"
+        origin_print(prefix, *args, **kwargs)
+    builtins.print = custom_print
+
