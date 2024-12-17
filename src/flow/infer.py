@@ -56,6 +56,7 @@ def init_model(builder, model_path_dict = {}):
         if flow_model:
             print(f"加载模型 : {model_path}")
             flow_model.load_weights(model_path, 'tensorflow', 'npz')
+            flow_model.setstate_predict()
 
     return name2model
 

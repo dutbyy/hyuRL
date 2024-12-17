@@ -57,10 +57,11 @@ class FlowModelPPOSync(flow.Model):
         if torch.cuda.is_available():
             self._model._network.cuda()
 
-    def setstate_predict(self, state):
-        model_name, builder, weights = state
-        self._init(model_name, builder)
-        self._model._network.load_state_dict(weights)
+    def setstate_predict(self, state=None):
+        if state:
+            model_name, builder, weights = state
+            self._init(model_name, builder)
+            self._model._network.load_state_dict(weights)
         self._model._network.requires_grad_(False)
         self._model._network.eval()
 
@@ -227,5 +228,5 @@ class FlowModelPPOSync(flow.Model):
         # behavior_info_dict = tree.map_structure(lambda x: tf.convert_to_tensor(x).cuda(), behavior_info_dict)
         state_dict = trans2tensor(state_dict)
         predict_output_dict = self._model.predict(state_dict)
-        output_dict = tree.map_structure(lambda x: x.cpu().numpy(), predict_output_dict)
+        output_dict = tree.map_structure(lambda x: x.cpu().detach().numpy(), predict_output_dict)
         return output_dict
