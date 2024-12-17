@@ -67,8 +67,7 @@ class ComplexNetwork(nn.Module):
         self._default_source_embeddings = torch.zeros(1)
 
     def forward(self, input_dict: dict, behavior_action_dict = None, training = False):
-        # print("input_dict", input_dict)
-        # input_dict = {k: torch.Tensor(v) for k, v in input_dict.items()}
+        state_dict = input_dict.copy()
         decoder_output = {}
         predict_output_dict = OrderedDict({
             VALUE: None,
@@ -76,41 +75,44 @@ class ComplexNetwork(nn.Module):
             ACTION: {},
             HIDDEN_STATE: {}
         })
+        # predict_output_dict = {
+        #     VALUE: None,
+        #     LOGITS: {},
+        #     ACTION: {},
+        #     HIDDEN_STATE: {}
+        # }
 
         # if aggregator_state:
             # predict_output_dict[HIDDEN_STATE] = aggregator_state
         for node_name in self.top_sorted:
-            # print(f"now in {node_name}, {input_dict.keys()}")
             if node_name not in self.sub_model_dict:
                 continue
             sub_model = self.sub_model_dict[node_name]
             sub_model_config = self._network_config[node_name]
             inputs = []
             for source in sub_model_config.get('inputs', []):
-                if input_dict and source in input_dict:
-                    inputs.append(input_dict[source])
-            # inputs = [ input_dict[source] for source in sub_model_config.get('inputs', []) ]
+                if state_dict and source in state_dict:
+                    inputs.append(state_dict[source])
+            # inputs = [ state_dict[source] for source in sub_model_config.get('inputs', []) ]
             if len(inputs) == 0:
                 continue # raise ValueError("Model have not inputs")
             if isinstance(sub_model, Encoder):
                 inputs = torch.concat(inputs, -1)
-                # print('encoder before input dict is ', input_dict)
                 outputs, embeddings = sub_model(inputs, training)
-                input_dict[node_name] = outputs
-                input_dict[EMBEDING_PREFIX+node_name] = embeddings
-                # print('encoder over input dict is ', input_dict)
+                state_dict[node_name] = outputs
+                state_dict[EMBEDING_PREFIX+node_name] = embeddings
 
             elif isinstance(sub_model, Aggregator):
                 # inputs = torch.concat(inputs, -1)
                 # print(inputs.shape)
-                hidden_state = input_dict.get(HIDDEN_PREFIX + node_name, torch.ones(inputs[0].shape[0], 10))
-                episode_done = input_dict.get(DONE, None)
+                hidden_state = state_dict.get(HIDDEN_PREFIX + node_name, torch.ones(inputs[0].shape[0], 10))
+                episode_done = state_dict.get(DONE, None)
 #                 if hidden_state is not None and episode_done is not None :
 #                     hidden_state = hidden_state * (1 - torch.unsqueeze(episode_done, axis=-1))
                 output, output_hidden_state = sub_model(inputs, initial_state = hidden_state, training=training)
                 # predict_output_dict[HIDDEN_PREFIX + node_name] = output_hidden_state
                 predict_output_dict[HIDDEN_STATE][node_name] = output_hidden_state
-                input_dict[node_name] = output
+                state_dict[node_name] = output
 
             elif isinstance(sub_model, ValueApproximator):
                 inputs = torch.concat(inputs, -1)
@@ -118,22 +120,21 @@ class ComplexNetwork(nn.Module):
                 predict_output_dict[VALUE] = value
 
             elif isinstance(sub_model, Decoder):
-                # inputs = sum(inputs) / len(inputs)
                 inputs = torch.concat(inputs, -1)
                 source_encoder_name = sub_model_config.get("source_encoder_name", None)
                 if source_encoder_name:
-                    source_embeddings = input_dict[EMBEDING_PREFIX + source_encoder_name]
+                    source_embeddings = state_dict[EMBEDING_PREFIX + source_encoder_name]
                 else:
-                    source_embeddings = input_dict.get("default_source_embeddings", self._default_source_embeddings)
+                    source_embeddings = state_dict.get("default_source_embeddings", self._default_source_embeddings)
 
                 mask_config = sub_model_config.get("mask", None)
 
                 if not mask_config:
                     mask = None
                 elif isinstance(mask_config, str):
-                    mask = input_dict[mask_config]
+                    mask = state_dict[mask_config]
                 # elif isinstance(mask_config, Callable):
-                #     mask = mask_config(input_dict, decoder_action_dict.get(dependent_decoder_name, None))
+                #     mask = mask_config(state_dict, decoder_action_dict.get(dependent_decoder_name, None))
                 else:
                     raise ValueError(f"Unknown mask type : {type(mask_config)}")
                 # print(f"behavior_action_dict is {behavior_action_dict}")
@@ -142,9 +143,9 @@ class ComplexNetwork(nn.Module):
                 logits, action, embeddings = sub_model([inputs, source_embeddings],
                                                         action_mask=mask,
                                                         behavior_action=behavior_action)
-                input_dict[node_name] = embeddings
-                input_dict[LOGITS_PREFIX + node_name] = logits
-                input_dict[ACTION_PREFIX + node_name] = action
+                state_dict[node_name] = embeddings
+                state_dict[LOGITS_PREFIX + node_name] = logits
+                state_dict[ACTION_PREFIX + node_name] = action
                 decoder_output[node_name]= {
                     "logits": logits,
                     "action": action,
@@ -156,7 +157,9 @@ class ComplexNetwork(nn.Module):
                 print("Unsupport Submodel")
 
         # print(f"input_dict is {input_dict.keys()}")
+        nested_print = lambda k, v : f"\n{k}:\n {', '.join([nested_print(c, d) for c, d in v.items()])}" if isinstance(v, dict) else f"\t {k}'s shape is {v.shape}\n"
         # print(f"output_dict is {predict_output_dict.keys()}")
+        print(f"output_dict :  { nested_print('output', predict_output_dict)}\n\n")
         return predict_output_dict
 
     def get_aggregator_init_state(self):
