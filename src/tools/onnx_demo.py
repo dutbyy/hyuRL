@@ -9,6 +9,7 @@ from src.network import DenseAggregator, ValueApproximator
 from src.network import ComplexNetwork
 from src.tools.common import construct
 
+
 def fix_print():
     # return
     import builtins
@@ -28,15 +29,14 @@ def fix_print():
     builtins.print = custom_print
 
 
-nested_from_numpy = lambda x: (
-    torch.from_numpy(x)
-    if isinstance(x, np.ndarray)
-    else (
-        x
-        if isinstance(x, torch.Tensor)
-        else {k: nested_from_numpy(v) for k, v in x.items()}
-    )
-)
+def nested_from_numpy(x):
+    if isinstance(x, np.ndarray):
+        return torch.from_numpy(x)
+    elif isinstance(x, torch.Tensor):
+        return x
+    else:
+        return {k: nested_from_numpy(v) for k, v in x.items()}
+
 
 network_cfg = {
     "info_encoder": {
