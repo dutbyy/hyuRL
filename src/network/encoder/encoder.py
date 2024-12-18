@@ -8,7 +8,7 @@ class Encoder(nn.Module):
 
     def __init__(self):
         super(Encoder, self).__init__()
-        self._name = None
+        self._label = "Encoder"
 
     def forward(self,
                 inputs: Union[torch.Tensor],
@@ -31,14 +31,3 @@ class Encoder(nn.Module):
                 不仅想返回outputs，还想输出一个保留空间信息的embedding。
         """
         raise NotImplementedError
-
-    @property
-    def name(self):
-        return self._name
-
-    @name.setter
-    def name(self, name_: str):
-        self._name = name_
-
-    def __str__(self) -> str:
-        return self.name

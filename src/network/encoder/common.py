@@ -1,26 +1,38 @@
 import torch
-import torch.nn as nn
-from torch.nn import init
+from torch import nn
 from typing import List, Tuple, Union
 from .encoder import Encoder
+
+
 def init_weights(m):
     if type(m) == nn.Linear:
-        init.xavier_uniform_(m.weight)
+        nn.init.xavier_uniform_(m.weight)
         if m.bias is not None:
-            init.zeros_(m.bias)
+            nn.init.zeros_(m.bias)
+
 
 class CommonEncoder(Encoder):
-    """用于处理环境中的统计特征信息的编码器
+    r"""用于处理环境中的统计特征信息的编码器
+    CommonEncoder
+
+    `Args`:
+        `in_features` :        输入特征维度
+        `hidden_layer_sizes`:  隐藏层大小
+
+    `Shape`:
+        - `Input`:  [batch, in_feature]
+        - `Output`: [batch, output_size]
+
+    `Example`::
+        >>> encoder = CommonEncoder(in_feature=16, hidden_layer_sizes=[128, 128])
+        >>> inputs = torch.ones(size=[128, 10])
+        >>> output, _ = encoder(inputs)
+        >>> print(output.shape)
+        torch.Size([128, 128])
     """
 
     def __init__(self, in_features, hidden_layer_sizes: List[int]):
-        """初始化 CommonEncoder
 
-        Parameters
-        ----------
-        hidden_layer_sizes : List[int]
-            隐藏层输出神经元数量
-        """
         super().__init__()
         layers = []
         layer_sizes = [in_features] + hidden_layer_sizes
@@ -32,23 +44,8 @@ class CommonEncoder(Encoder):
         self._dense_sequence = nn.Sequential(*layers)
         self._dense_sequence.apply(init_weights)
 
-    def forward(self,
-                inputs: Union[torch.Tensor],
-                training: bool = False) -> Tuple[torch.Tensor, None]:
-        """
-        Parameters
-        ----------
-        inputs : Union[torch.Tensor]
-            common 特征
-
-        Returns
-        -------
-        Tuple[torch.Tensor, None]
-            编码后的特征, 保留统计信息的embedding
-        """
+    def forward(
+        self, inputs: Union[torch.Tensor], training: bool = False
+    ) -> Tuple[torch.Tensor, None]:
 
         return self._dense_sequence(inputs), None
-
-if __name__ == '__main__':
-    a = CommonEncoder(12, [64, 12, 32])
-    print(a)

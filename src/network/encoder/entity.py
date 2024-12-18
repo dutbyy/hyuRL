@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from typing import Tuple, Union
+from .encoder import Encoder
 
 def init_weights(m):
     from torch.nn import init
@@ -9,14 +10,40 @@ def init_weights(m):
         if m.bias is not None:
             init.zeros_(m.bias)
 
-class EntityEncoder(nn.Module):
+class MaxPooling(nn.Module):
+    def __init__(self, length, dim=1,):
+        super().__init__()
+        self.pooling = torch.nn.MaxPool1d(length)
+
+    def forward(self, x):
+        y = self.pooling(x.permute(0, 2, 1))
+        
+        return torch.flatten(y, 1)
+    
+class EntityEncoder(Encoder):
     """用于处理环境中实体特征的编码器
+    `Args`:
+        `in_features` :         输入特征维度
+        `hidden_layer_sizes`:   隐藏层大小
+        `transformer`:          transformer
+        `pooling`:              pooling
+        
+    `Shape`:
+        - `Input`:  [batch, in_feature]
+        - `Output`: [batch, output_size]
+
+    `Example`::
+        >>> encoder = EntityEncoder(in_feature=16, hidden_layer_sizes=[128, 128])
+        >>> inputs = torch.ones(size=[128, 10])
+        >>> output, _ = encoder(inputs)
+        >>> print(output.shape)
+        torch.Size([128, 128])
     """
 
-    def __init__(self, in_features, hidden_layer_sizes, transformer=None, pooling=None):
+    def __init__(self, length, in_features, hidden_layer_sizes, transformer=None, pooling=None):
         super(EntityEncoder, self).__init__()
-        self._pooling = pooling
         self._transformer = transformer
+        self._pooling = pooling if pooling else MaxPooling(length)
         layers = []
         
         layer_sizes = [in_features] + hidden_layer_sizes
@@ -27,7 +54,7 @@ class EntityEncoder(nn.Module):
             layers.append(nn.ReLU())
             layers.append(nn.LayerNorm(out_f))
         self._dense_sequence = nn.Sequential(*layers)
-        # self._dense_sequence.apply(init_weights)
+        self._dense_sequence.apply(init_weights)
 
         
 
@@ -57,12 +84,10 @@ class EntityEncoder(nn.Module):
             entity_embeddings = self._transformer(entity_embeddings)
         
         # 应用Pooling，这里需要自定义一个Pooling类或者使用PyTorch的池化层来实现相应功能
-        outputs = self._pooling(entity_embeddings, inputs_len)
+        # outputs = torch.ones([100,1])
+        if self._pooling:
+            outputs = self._pooling(entity_embeddings)
         
         return outputs, entity_embeddings
 
-# 注意：这里省略了Mask和Pooling的实现，因为它们需要根据具体情况来定制。
 
-if __name__ == '__main__':
-    a = EntityEncoder(24, [12, 24])
-    print(a)
