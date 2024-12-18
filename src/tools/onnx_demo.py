@@ -5,7 +5,7 @@ from src.network import *
 from src.tools.common import construct
 from src.network.complex import ComplexNetwork
 from collections import OrderedDict
-
+from torch import nn
 def fix_print():
     import builtins
     import os
@@ -75,7 +75,7 @@ def export_onnx():
         "attack": {
             "class": GaussianDecoder,
             "params": {
-                "n": 3,
+                "n": 1,
                 "hidden_layer_sizes": [64],
             },
             "inputs": ["move"],
@@ -216,43 +216,44 @@ def onnx_view():
                 "output_size": 256,
             },
             "inputs": ["encoder_demo_a", "encoder_demo_b", "encoder_demo_c"],
-            # "inputs": ["encoder_demo_c"],
         },
-        # "value_app": {
-        #     "class": ValueApproximator,
-        #     "params": {
-        #         "in_features": 256,
-        #         "hidden_layer_sizes": [64],
-        #     },
-        #     "inputs": ["aggregator"],
-        # },
-        # "move": {
-        #     "class": CategoricalDecoder,
-        #     "params": {
-        #         "n": 2,
-        #         "hidden_layer_sizes": [64],
-        #     },
-        #     "inputs": ["aggregator"],
-        # },
-        # "attack": {
-        #     "class": GaussianDecoder,
-        #     "params": {
-        #         "n": 3,
-        #         "hidden_layer_sizes": [64],
-        #     },
-        #     "inputs": ["move"],
-        # },
+        "value_app": {
+            "class": ValueApproximator,
+            "params": {
+                "in_features": 256,
+                "hidden_layer_sizes": [64],
+            },
+            "inputs": ["aggregator"],
+        },
+        "move": {
+            "class": CategoricalDecoder,
+            "params": {
+                "n": 2,
+                "hidden_layer_sizes": [64],
+            },
+            "inputs": ["aggregator"],
+        },
+        "attack": {
+            "class": GaussianDecoder,
+            "params": {
+                "n": 1,
+                "hidden_layer_sizes": [64],
+            },
+            "inputs": ["aggregator"],
+        },
     }
     delayed_policy = {
         "class": ComplexNetwork,
         "params": {"network_config": network_cfg},
     }
-    model = construct(delayed_policy)
+    model: nn.Module = construct(delayed_policy).eval()
+    model.requires_grad_(False)
     dummy_input = {
-        "feature_a": torch.rand(2, 4),
-        "feature_b": torch.rand(2, 12),
-        "feature_c": torch.rand(2, 12),
+        "feature_a": torch.rand(1024, 4),
+        "feature_b": torch.rand(1024, 12),
+        "feature_c": torch.rand(1024, 12),
     }
+    model(dummy_input)
     model_graph = draw_graph(
         model,
         input_data={

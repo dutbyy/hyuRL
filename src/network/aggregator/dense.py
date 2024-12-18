@@ -17,13 +17,8 @@ class DenseAggregator(Aggregator):
         self._dense_sequence = nn.Sequential(*layers)
 
     def forward(self,
-                inputs: List[torch.Tensor],
+                inputs: torch.Tensor,
                 initial_state=None,
                 seq_len: int = 1, training:bool=False) -> Tuple[torch.Tensor, None]:
-        # del initial_state, seq_len  # Unused by forward
-        concat_features = torch.cat(inputs, dim=-1)
-        # for logits in inputs:
-        #     print('logit ', logits.device)
-        # print('cct feat', concat_features, concat_features.device)
-        outputs = self._dense_sequence(concat_features)
+        outputs = self._dense_sequence(inputs)
         return outputs, initial_state

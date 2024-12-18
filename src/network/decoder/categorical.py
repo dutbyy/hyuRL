@@ -34,7 +34,7 @@ class CategoricalDecoder(Decoder):
 
         # 如果没有提供行为动作，则从分布中采样一个动作
         if behavior_action is None:
-            behavior_action = distribution.sample()
+            behavior_action = distribution.sample() # Categorical本身就不可微, 不需要detach
         behavior_action_embedding = self.embedding_vocabulary(behavior_action)
 
         # 计算自回归嵌入，结合行为动作嵌入和输入
