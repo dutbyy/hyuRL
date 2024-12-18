@@ -19,9 +19,7 @@ VALUE = "value"
 HIDDEN_STATE = "hidden_state"
 
 
-def is_class_dict(class_dict: Dict):
-    return ("class" in class_dict) and ("params" in class_dict)
-
+is_class_dict = lambda class_dict : ("class" in class_dict) and ("params" in class_dict)
 
 def construct(class_dict: Dict):
     """根据 config dict, 从对应的 network component class 中实例化一个对应的网络组件"""
@@ -33,7 +31,6 @@ def construct(class_dict: Dict):
 
     class_ = class_dict["class"]
     params = class_dict["params"]
-    # print(class_, params)
     return class_(**params)
 
 
@@ -63,13 +60,15 @@ class ComplexNetwork(nn.Module):
     def __init__(self, network_config):
         super().__init__()
         self._network_config = network_config
-
         self.sub_model_dict = nn.ModuleDict(
             {
                 name: construct(submodel_config)
                 for name, submodel_config in self._network_config.items()
             }
         )
+        for k, v in self.sub_model_dict.items():
+            setattr(v, "__label__", f"{type(v).__name__}: {k}")
+
         dag, top_generator = construct_dag(self._network_config, self.sub_model_dict)
         self._dag = dag
         self.top_sorted = [it for it in top_generator]
@@ -83,7 +82,9 @@ class ComplexNetwork(nn.Module):
         for node_name in self.top_sorted:
             if node_name not in self.sub_model_dict:
                 continue
-            sub_model: Union[Encoder, Decoder, Aggregator, ValueApproximator] = self.sub_model_dict[node_name]
+            sub_model: Union[Encoder, Decoder, Aggregator, ValueApproximator] = (
+                self.sub_model_dict[node_name]
+            )
             sub_model_config = self._network_config[node_name]
             inputs = []
             for source in sub_model_config.get("inputs", []):
@@ -93,7 +94,8 @@ class ComplexNetwork(nn.Module):
             if len(inputs) == 0:
                 continue  # raise ValueError("Model have not inputs")
             if isinstance(sub_model, Encoder):
-                inputs = torch.concat(inputs, -1)
+                # inputs = torch.concat(inputs, -1)
+                inputs = inputs[0]
                 outputs, embeddings = sub_model(inputs, training)
                 state_dict[node_name] = outputs
                 state_dict[EMBEDING_PREFIX + node_name] = embeddings
@@ -102,14 +104,16 @@ class ComplexNetwork(nn.Module):
                 inputs = torch.concat(inputs, -1)
                 hidden_state = state_dict.get(HIDDEN_PREFIX + node_name, None)
                 episode_done = state_dict.get(DONE, None)
-                if hidden_state is not None and episode_done is not None :
-                    hidden_state = hidden_state * (1 - torch.unsqueeze(episode_done, axis=-1))
+                if hidden_state is not None and episode_done is not None:
+                    hidden_state = hidden_state * (
+                        1 - torch.unsqueeze(episode_done, axis=-1)
+                    )
                 output, output_hidden_state = sub_model(
                     inputs, initial_state=hidden_state, training=training
                 )
                 if output_hidden_state is not None:
                     predict_output_dict[HIDDEN_STATE][node_name] = output_hidden_state
-                    print(hidden_state)
+                    # print(hidden_state)
                 state_dict[node_name] = output
 
             elif isinstance(sub_model, ValueApproximator):
@@ -143,13 +147,13 @@ class ComplexNetwork(nn.Module):
                     action_mask=mask,
                     behavior_action=behavior_action,
                 )
-                # state_dict[node_name] = embeddings
+                state_dict[node_name] = embeddings
                 state_dict[LOGITS_PREFIX + node_name] = logits
                 state_dict[ACTION_PREFIX + node_name] = action
                 predict_output_dict[LOGITS][node_name] = logits
                 predict_output_dict[ACTION][node_name] = action
             else:
-                raise Exception("Unsupport Submodel")
+                raise Exception(f"Unsupport Submodel : {type(sub_model)}")
         return predict_output_dict
 
     def get_aggregator_init_state(self):
