@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.distributions import Normal
 from .decoder import Decoder
 CommonLayerSize = 256
+
 class GaussianDecoder(Decoder):
     """
     Decoder for handling continuous actions.
@@ -23,13 +24,14 @@ class GaussianDecoder(Decoder):
         layers.append(nn.Linear(hidden_layer_sizes[-1], n))
         self.dense_sequence = nn.Sequential(*layers)
         # 初始化log_std变量
-        self.log_std = nn.Parameter(torch.zeros(n), requires_grad=True)
+        self.log_std = nn.Parameter(torch.zeros(n, dtype=torch.float32), requires_grad=True)
         # 定义动作嵌入层
         self.action_embedding = nn.Linear(n, CommonLayerSize)
 
     def forward(self, inputs, action_mask=None, behavior_action=None):
         # 通过隐藏层序列处理输入
-        mu = self.dense_sequence(inputs[0])
+        inputs, embedding = inputs
+        mu = self.dense_sequence(inputs)
         if action_mask is not None:
             # 在PyTorch中，连续解码器不支持动作掩码
             raise NotImplementedError("action_mask is not supported in ContinuousDecoder")
@@ -38,16 +40,16 @@ class GaussianDecoder(Decoder):
         distribution = Normal(mu, std)
 
         if behavior_action is None:
-            behavior_action = distribution.sample()
+            # behavior_action = distribution.sample() 
+            behavior_action = distribution.sample().detach()
         # 获取行为动作的嵌入表示
         behavior_action_embedding = self.action_embedding(behavior_action)
         # 计算自回归嵌入，结合行为动作嵌入和输入
-        auto_regressive_embedding = behavior_action_embedding + inputs[0]
-        
+        auto_regressive_embedding = behavior_action_embedding + inputs
         return {
             "mu": mu,
             "log_std": self.log_std.expand_as(mu)
-        }, behavior_action, auto_regressive_embedding
+        },  behavior_action, auto_regressive_embedding
 
     def distribution(self, mu):
         # 返回正态分布，使用mu和log_std参数
