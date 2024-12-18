@@ -1,4 +1,6 @@
 from .encoder.common import CommonEncoder
+from .encoder.entity import EntityEncoder
+from .encoder.spatial import SpatialEncoder 
 from .decoder.categorical import CategoricalDecoder
 from .decoder.gaussian import GaussianDecoder
 
