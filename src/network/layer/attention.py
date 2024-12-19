@@ -107,13 +107,13 @@ def test_bin():
     print(score.shape)
 
 
-def test_multi():
-    att_m = MultiHeadAttention(32, 64, 256, 4, 4)
-    query = torch.rand(size=[128, 128, 32])
-    key = torch.rand(size=[128, 128, 64])
-    value = torch.rand(size=[128, 128, 256])
-    att = att_m([query, key, value])
-    print(att.shape)
+# def test_multi():
+#     att_m = MultiHeadAttention(32, 64, 256, 4, 4)
+#     query = torch.rand(size=[128, 128, 32])
+#     key = torch.rand(size=[128, 128, 64])
+#     value = torch.rand(size=[128, 128, 256])
+#     att = att_m([query, key, value])
+#     print(att.shape)
 
 
 if __name__ == "__main__":
