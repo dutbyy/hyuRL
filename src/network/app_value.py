@@ -5,15 +5,17 @@ CommonLayerSize = 128
 
 class ValueApproximator(nn.Module):
     """可以输出 V(s) 的 value network
-
-    Parameters
-    ----------
-    hidden_layer_sizes : List
-        Value network 的隐藏层大小
-    """
-
+    
+    Args:
+        `hidden_layer_sizes (List)`:        Value network 的隐藏层大小
+        `activation (str, optional)`:       激活函数. Defaults to 'relu'.
+        `in_features (_type_, optional)`:   输入feature长度. Defaults to None.
+        `out_features (_type_, optional)`:  输出feature长度. Defaults to None.
+    """    
     def __init__(self, hidden_layer_sizes: List, activation='relu',
                     in_features=None, out_features=None):
+    
+        
         super().__init__()
         layers = []
         
