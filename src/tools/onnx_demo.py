@@ -4,7 +4,7 @@ from torch import nn
 from collections import OrderedDict
 
 from src.network import CommonEncoder, EntityEncoder, SpatialEncoder
-from src.network import CategoricalDecoder, GaussianDecoder
+from src.network import CategoricalDecoder, GaussianDecoder, SingleSelectiveDecoder
 from src.network import DenseAggregator, ValueApproximator
 from src.network import ComplexNetwork
 from src.tools.common import construct
@@ -71,17 +71,26 @@ network_cfg = {
         "params": {
             "in_features": 128 * 3,
             "hidden_layer_sizes": [256],
-            "output_size": 256,
+            "output_size": 128,
         },
         "inputs": ["info_encoder", "enemy_encoder", "height_map_encoder"],
     },
     "value_app": {
         "class": ValueApproximator,
         "params": {
-            "in_features": 256,
+            "in_features": 128,
             "hidden_layer_sizes": [64],
         },
         "inputs": ["aggregator"],
+    },
+    "target": {
+        "class": SingleSelectiveDecoder,
+        "params": {
+            "in_features": 128,
+            "attention_size": 64,
+        },
+        "inputs": ["aggregator"],
+        "source_encoder_name": "enemy_encoder",
     },
     "move": {
         "class": CategoricalDecoder,
@@ -97,7 +106,7 @@ network_cfg = {
             "n": 1,
             "hidden_layer_sizes": [64],
         },
-        "inputs": ["move"],
+        "inputs": ["aggregator"],
     },
 }
 delayed_policy = {
@@ -106,9 +115,9 @@ delayed_policy = {
 }
 dummy_input = OrderedDict(
     {
-        "feature_a": np.ones((10, 4)).astype(np.float32),
-        "feature_b": np.ones((10, 10, 12)).astype(np.float32),
-        "feature_c": np.ones((10, 16, 16, 12)).astype(np.float32),
+        "feature_a": np.ones((64, 4)).astype(np.float32),
+        "feature_b": np.ones((64, 12, 12)).astype(np.float32),
+        "feature_c": np.ones((64, 16, 16, 12)).astype(np.float32),
     }
 )
 
@@ -137,8 +146,10 @@ def export_onnx():
         "logits_move",
         "logits_attack_mu",
         "logits_attack_std",
+        "logits_target",
         "action_move",
         "action_attack",
+        "action_target",
     ]
     print(dummy_input)
     torch.onnx.export(
@@ -197,7 +208,7 @@ def onnx_run():
     print(outputs)
 
 
-def onnx_view():
+def torch_view():
     from torchview import draw_graph
 
     model: nn.Module = construct(delayed_policy).eval()
@@ -214,10 +225,15 @@ def onnx_view():
     # model_graph.visual_graph
 
 
+def onnx_view():
+    import netron
+    netron.start('./model.onnx')
+    
 if __name__ == "__main__":
-    # fix_print()
-    export_onnx()
+    fix_print()
+    # export_onnx()
     # onnx_info()
     # onnx_check()
     # onnx_run()
-    onnx_view()
+    # onnx_view()
+    torch_view()
