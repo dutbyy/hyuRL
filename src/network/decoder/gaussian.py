@@ -5,10 +5,13 @@ from .decoder import Decoder
 CommonLayerSize = 128
 
 class GaussianDecoder(Decoder):
-    """
-    Decoder for handling continuous actions.
-    """
+    """连续动作空间
 
+    Args:
+        n (_type_): 动作个数
+        hidden_layer_sizes (_type_): 隐藏层大小列表
+        activation (str, optional): 激活函数. Defaults to 'relu'.
+    """        
     def __init__(self, n, hidden_layer_sizes, activation='relu'):
         super().__init__()
         # 动作数量
@@ -21,6 +24,8 @@ class GaussianDecoder(Decoder):
             if activation == 'relu':
                 layers.append(nn.ReLU())
             # 如果需要，可以添加其他激活函数
+            elif activation == 'tanh':
+                layers.append(nn.Tanh())
         layers.append(nn.Linear(hidden_layer_sizes[-1], n))
         self.dense_sequence = nn.Sequential(*layers)
         # 初始化log_std变量
