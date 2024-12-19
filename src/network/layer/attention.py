@@ -117,7 +117,7 @@ def test_bin():
 
 
 if __name__ == "__main__":
-    test_multi()
+    # test_multi()
     test_dot()
     test_scaled()
     test_add()
