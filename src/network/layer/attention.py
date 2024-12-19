@@ -41,9 +41,9 @@ class AdditiveAttentionScore(nn.Module):
         transformed_key = self.W_k(key)  # (batch_size, seq_len_k, hidden_size)
 
         # 计算加法注意力分数
-        scores = torch.tanh(
-            transformed_query.unsqueeze(2) + transformed_key.unsqueeze(1)
-        )
+        transformed_query = transformed_query.unsqueeze(2)
+        transformed_key = transformed_key.unsqueeze(1)
+        scores = torch.tanh(transformed_query + transformed_key)
         scores = torch.matmul(scores, self.v).squeeze(-1)
 
         return scores
@@ -58,73 +58,11 @@ class BilinearAttentionScore(nn.Module):
 
     def forward(self, inputs) -> torch.Tensor:
         query, key = inputs
-        batch_size, seq_len_q, d_q = query.size()
-        _, seq_len_k, d_k = key.size()
         transformed_query = torch.matmul(query, self.W)
         scores = torch.matmul(transformed_query, key.transpose(-1, -2))
 
         return scores
 
-
-class MultiHeadAttention(nn.Module):
-
-    def __init__(self, d_q, d_k, d_v, num_heads: int, head_size: int):
-        super(MultiHeadAttention, self).__init__()
-        self.num_heads = num_heads
-        self.head_size = head_size
-        d_model = num_heads * head_size
-        self.wq = nn.Linear(d_q, d_model, bias=False)
-        self.wk = nn.Linear(d_k, d_model, bias=False)
-        self.wv = nn.Linear(d_v, d_model, bias=False)
-        self.linear = nn.Linear(d_model, d_model, bias=False)
-        
-    def split_heads(self, x:torch.Tensor, batch_size: int) -> torch.Tensor:
-        """Split the last dimension into (num_heads, head_size).
-        Transpose the result such that the shape is (batch_size, num_heads, seq_len, head_size)
-        """
-        x = x.reshape([batch_size, -1, self.num_heads, self.head_size])
-        return x.permute(0, 2, 1, 3)
-
-    def forward(self, inputs):
-        q, k, v = inputs
-        batch_size = q.shape[0]
-
-        q = self.wq(q)  # (batch_size, seq_len, d_model)
-        k = self.wk(k)  # (batch_size, seq_len, d_model)
-        v = self.wv(v)  # (batch_size, seq_len, d_model)
-
-        # (batch_size, num_heads, seq_len_q, head_size)
-        q = self.split_heads(q, batch_size)
-        # (batch_size, num_heads, seq_len_k, head_size)
-        k = self.split_heads(k, batch_size)
-        # (batch_size, num_heads, seq_len_v, head_size)
-        v = self.split_heads(v, batch_size)
-
-        scaled_attention_scores = ScaledDotProdcutAttentionScore()((q, k))
-        # if v_len is not None:
-        #     scaled_attention_scores = Mask(
-        #         scaled_attention_scores, v_len, mode="add", seq_axis=-1
-        #     )
-
-        # softmax is normalized on the last axis (seq_len_k) so that the scores
-        # add up to 1.
-        attention_weights = torch.softmax(scaled_attention_scores, axis=-1)  # (..., seq_len_q, seq_len_k)
-
-        # (..., seq_len_q, depth_v)
-        scaled_attention = torch.matmul(attention_weights, v)
-
-        # (batch_size, seq_len_q, num_heads, head_size)
-        scaled_attention.permute([0, 2, 1, 3])
-
-        # concat multiple heads
-        # (batch_size, seq_len_q, d_model)
-        concat_attention = scaled_attention.reshape((-1, scaled_attention.shape[1], self.num_heads * self.head_size))
-
-        # (batch_size, seq_len_q, d_model)
-        outputs = self.linear(concat_attention)
-        # if q_len is not None:
-        #     outputs = Mask(outputs, q_len, mode="mul", seq_axis=1)
-        return outputs
 
 
 def attention_score_model(name: str, **args):
@@ -141,42 +79,43 @@ def attention_score_model(name: str, **args):
 def test_dot():
     query = torch.rand(size=[128, 32, 512])
     key = torch.rand(size=[128, 64, 512])
-    score = attention_score_model('dot_product')([query, key])
+    score = attention_score_model("dot_product")((query, key))
     print(score.shape)
 
 
 def test_scaled():
     query = torch.rand(size=[128, 32, 512])
     key = torch.rand(size=[128, 64, 512])
-    score = attention_score_model('scale_dot_product')([query, key])
+    score = attention_score_model("scale_dot_product")((query, key))
     print(score.shape)
 
 
 def test_add():
-    score_model = attention_score_model('add', d_q=32, d_k=64)
+    score_model = attention_score_model("add", d_q=32, d_k=64)
     query = torch.rand(size=[128, 32, 32])
     key = torch.rand(size=[128, 64, 64])
-    score = score_model([query, key])
+    score = score_model((query, key))
     print(score.shape)
 
 
 def test_bin():
-    score_model = attention_score_model('binary', d_q=32, d_k=64)
+    score_model = attention_score_model("binary", d_q=32, d_k=64)
     score_model = BilinearAttentionScore(32, 64)
     query = torch.rand(size=[128, 32, 32])
     key = torch.rand(size=[128, 64, 64])
-    score = score_model([query, key])
+    score = score_model((query, key))
     print(score.shape)
+
 
 def test_multi():
     att_m = MultiHeadAttention(32, 64, 256, 4, 4)
     query = torch.rand(size=[128, 128, 32])
-    key =   torch.rand(size=[128, 128, 64])
+    key = torch.rand(size=[128, 128, 64])
     value = torch.rand(size=[128, 128, 256])
     att = att_m([query, key, value])
     print(att.shape)
-    
-    
+
+
 if __name__ == "__main__":
     test_multi()
     test_dot()
