@@ -5,6 +5,7 @@ __pycache__/
 
 depends/
 .vscode
+tmp/
 
 # C extensions
 *.so
