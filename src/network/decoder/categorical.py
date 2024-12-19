@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical
 
-CommonLayerSize = 256
+CommonLayerSize = 128
 from .decoder import Decoder
 
 

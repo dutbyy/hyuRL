@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from typing import List
-CommonLayerSize = 256
+CommonLayerSize = 128
 
 class ValueApproximator(nn.Module):
     """可以输出 V(s) 的 value network

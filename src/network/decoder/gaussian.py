@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.distributions import Normal
 from .decoder import Decoder
-CommonLayerSize = 256
+CommonLayerSize = 128
 
 class GaussianDecoder(Decoder):
     """
