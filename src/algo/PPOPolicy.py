@@ -1,10 +1,10 @@
 import timeit
 import torch
 import tree
-from src.network.complex import ComplexNetwork
-from src.loss.ppo import PPOLoss
-from src.memory.buffer import Memory
-from src.tools.gpu import auto_move
+from hyuRL.src.network.commander import ComplexNetwork
+from hyuRL.src.loss.ppo import PPOLoss
+from hyuRL.src.memory.buffer import Memory
+from hyuRL.src.tools.gpu import auto_move
 from typing import Dict, Any
 
 
@@ -24,27 +24,27 @@ class PPOPolicy:
     def inference_mode(self):
         self._network.eval()
 
-    def inference(self, state_input):
+    def predict(self, state_input):
         a = timeit.default_timer() * 1000
 
-        state_input = tree.map_structure(
-            lambda x: torch.from_numpy(x).cuda() if self.device == 'cuda' else torch.from_numpy(x),
-            state_input,
-        )
+        # state_input = tree.map_structure(
+        #     lambda x: torch.from_numpy(x).cuda() if self.device == 'cuda' else torch.from_numpy(x),
+        #     state_input,
+        # )
 
         with torch.no_grad():
             outputs = self._network(state_input)
 
-        outputs = tree.map_structure(
-            lambda x: x.numpy(),
-            outputs,
-        )
+        # outputs = tree.map_structure(
+        #     lambda x: x.numpy(),
+        #     outputs,
+        # )
 
         b = timeit.default_timer() * 1000
         eplased_time = b - a
-        return outputs, eplased_time
+        return outputs
 
-    def train(self, trainning_data: Dict[str, Any]):
+    def learn(self, trainning_data: Dict[str, Any]):
         trainning_data = tree.map_structure(
             lambda x: torch.from_numpy(x).cuda() if self.device == 'cuda' else torch.from_numpy(x),
             trainning_data,
@@ -103,4 +103,4 @@ class PPOPolicy:
             torch.nn.utils.clip_grad_norm_(self._network.parameters(), 40.0)
             self._optimizer.step()
             eplased_times.append(round(time.time() * 1000 - btime * 1000, 1))
-        return eplased_times
+        return 

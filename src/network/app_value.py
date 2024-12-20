@@ -7,19 +7,17 @@ class ValueApproximator(nn.Module):
     """可以输出 V(s) 的 value network
     
     Args:
-        `hidden_layer_sizes (List)`:        Value network 的隐藏层大小
+        `in_features (int)`:   输入feature长度.
+        `hidden_layer_sizes (List[int])`:   Value network 的隐藏层大小
         `activation (str, optional)`:       激活函数. Defaults to 'relu'.
-        `in_features (_type_, optional)`:   输入feature长度. Defaults to None.
-        `out_features (_type_, optional)`:  输出feature长度. Defaults to None.
     """    
-    def __init__(self, hidden_layer_sizes: List, activation='relu',
-                    in_features=None, out_features=None):
+    def __init__(self, in_features:int, hidden_layer_sizes: List[int], activation='relu'):
     
         
         super().__init__()
         layers = []
         
-        layer_sizes = [CommonLayerSize] + hidden_layer_sizes 
+        layer_sizes = [in_features] + hidden_layer_sizes 
         # 为后续层添加线性层、ReLU和LayerNorm
         for in_f, out_f in zip(layer_sizes[:-1], layer_sizes[1:]):
             layers.append(nn.Linear(in_f, out_f))

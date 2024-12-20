@@ -31,11 +31,11 @@ class CommonEncoder(Encoder):
         torch.Size([128, 128])
     """
 
-    def __init__(self, in_features, hidden_layer_sizes: List[int]):
+    def __init__(self, in_features, hidden_layer_sizes: List[int], output_size=256):
 
         super().__init__()
         layers = []
-        layer_sizes = [in_features] + hidden_layer_sizes
+        layer_sizes = [in_features] + hidden_layer_sizes + [output_size]
         # 为后续层添加线性层、ReLU和LayerNorm
         for in_f, out_f in zip(layer_sizes[:-1], layer_sizes[1:]):
             layers.append(nn.Linear(in_f, out_f))

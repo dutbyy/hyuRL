@@ -41,12 +41,13 @@ class SpatialEncoder(Encoder):
     创建一个空间特征编码器
 
     `Args`:
-        `in_shape` :       空间大小[heigt, width]
-        `in_feature` :     特征维度
-        `channel_num` :    卷积输出的channel长度
-        `output_size` :    SpatialEncoder 输出的特征长度
-        `down_samples` :   None or [filters, kernel_size, strides, padding
-        `res_block_num` :  残差块的数量
+        `in_shape` (List[int]):     空间大小[heigt, width]
+        `in_features` (int):        特征维度
+        `channel_num` (int):        卷积输出的channel长度
+        `output_size` (int):        SpatialEncoder 输出的特征长度
+        `down_samples` (List[int], optional):   None or [filters, kernel_size, strides, padding. Defaults to None.
+        `res_block_num` (int, optional):  残差块的数量. Defaults to 4.
+        
     `Shape`:
         - `Input`:  [batch, height, width, in_feature]
         - `Output`: [batch, output_size]

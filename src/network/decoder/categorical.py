@@ -9,15 +9,28 @@ from .decoder import Decoder
 class CategoricalDecoder(Decoder):
     """
     Decoder for handling discrete actions.
-    """
+    Args:
+        n (_type_): 离散动作空间
+        in_features (int): 输入特征长度
+        hidden_layer_sizes (_type_): 隐藏层大小
+        activation (str, optional): 激活函数. Defaults to "relu".
+        temperature (float, optional): _description_. Defaults to 1.0.
+    """  
+    def __init__(self, in_features, n, hidden_layer_sizes, activation="relu", temperature=1.0):
+        """_summary_
 
-    def __init__(self, n, hidden_layer_sizes, activation="relu", temperature=1.0):
+        Args:
+            n (_type_): _description_
+            hidden_layer_sizes (_type_): _description_
+            activation (str, optional): _description_. Defaults to "relu".
+            temperature (float, optional): _description_. Defaults to 1.0.
+        """        
         super().__init__()
         self._n = n
         self._temperature = temperature
         layers = nn.ModuleList()
 
-        layer_sizes = [CommonLayerSize] + hidden_layer_sizes
+        layer_sizes = [in_features] + hidden_layer_sizes
         # 为后续层添加线性层、ReLU和LayerNorm
         for in_f, out_f in zip(layer_sizes[:-1], layer_sizes[1:]):
             layers.append(nn.Linear(in_f, out_f))
@@ -26,7 +39,7 @@ class CategoricalDecoder(Decoder):
 
         layers.append(nn.Linear(hidden_layer_sizes[-1], n))
         self._dense_sequence = nn.Sequential(*layers)
-        self.embedding_vocabulary = nn.Embedding(self._n, CommonLayerSize)
+        self.embedding_vocabulary = nn.Embedding(self._n, in_features)
 
     def forward(self, inputs, action_mask=None, behavior_action=None):
         logits = self._dense_sequence(inputs[0])

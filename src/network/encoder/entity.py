@@ -40,13 +40,13 @@ class EntityEncoder(Encoder):
         torch.Size([128, 128])
     """
 
-    def __init__(self, length, in_features, hidden_layer_sizes, transformer=None, pooling=None):
+    def __init__(self, length, in_features, hidden_layer_sizes, output_size=256, transformer=None, pooling=None):
         super(EntityEncoder, self).__init__()
         self._transformer = transformer
         self._pooling = pooling if pooling else MaxPooling(length)
         layers = []
         
-        layer_sizes = [in_features] + hidden_layer_sizes
+        layer_sizes = [in_features] + hidden_layer_sizes + [output_size]
 
         # 为后续层添加线性层、ReLU和LayerNorm
         for in_f, out_f in zip(layer_sizes[:-1], layer_sizes[1:]):

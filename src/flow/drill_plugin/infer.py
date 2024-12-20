@@ -30,7 +30,7 @@ def add_batch(input_dict):
     }
     return output_dict
 
-def init_env(builder, model_path_dict={}):
+def init_env(builder):
     flow_env = FlowEnvPPO(EnvDescribe(builder))
     return flow_env
 
@@ -91,5 +91,6 @@ def inference(flow_env, name2model):
 def main():
     model_path_dict = {}
     builder = None
-    flow_env, name2model = init_model_env(builder, model_path_dict)
+    flow_env = init_env(builder)
+    name2model = init_model(builder, model_path_dict)
     inference(flow_env, name2model)

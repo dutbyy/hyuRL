@@ -155,7 +155,7 @@ def export_onnx():
     torch.onnx.export(
         model,
         (dm_input, None),
-        "./model.onnx",
+        "./tmp/model.onnx",
         # verbose=True,
         input_names=input_names,
         output_names=output_names,
@@ -166,11 +166,10 @@ def export_onnx():
     #     (dummy_input, None)
     # ).save("dynamo_model.onnx")
 
-
 def onnx_info():
     import onnxruntime
 
-    ort_session = onnxruntime.InferenceSession("./model.onnx")
+    ort_session = onnxruntime.InferenceSession("./tmp/model.onnx")
     input_names = [it.name for it in ort_session.get_inputs()]
     output_names = [it.name for it in ort_session.get_outputs()]
     print(f"model input names : {input_names}")
@@ -181,20 +180,18 @@ def onnx_info():
     print(f"model input shapes : {input_shape}")
     print(f"model input shapes : {output_shape}")
 
-
 def onnx_check():
     import onnx
 
     buffer = None
-    onnx_model = onnx.load_model("./model.onnx")
+    onnx_model = onnx.load_model("./tmp/model.onnx")
     onnx.checker.check_model(onnx_model)
-
 
 def onnx_run():
     import onnxruntime
     import numpy as np
 
-    ort_session = onnxruntime.InferenceSession("./model.onnx")
+    ort_session = onnxruntime.InferenceSession("./tmp/model.onnx")
 
     dummy_input = {}
     dummy_input["feature_a"] = np.random.normal(size=(1, 4)).astype(np.float32)
@@ -206,7 +203,6 @@ def onnx_run():
     assert len(ort_outputs) == len(output_names)
     outputs = {k: v for k, v in zip(output_names, ort_outputs)}
     print(outputs)
-
 
 def torch_view():
     from torchview import draw_graph
@@ -220,10 +216,11 @@ def torch_view():
         input_data={"input_dict": dm_input},
         device="cpu",
         save_graph=True,
+        directory='./tmp',
+        filename='torch_view',
         expand_nested=True,
     )
     # model_graph.visual_graph
-
 
 def onnx_view():
     import netron

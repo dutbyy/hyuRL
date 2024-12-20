@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from torch.distributions import Normal
 from .decoder import Decoder
-CommonLayerSize = 128
 
 class GaussianDecoder(Decoder):
     """连续动作空间
@@ -12,13 +11,13 @@ class GaussianDecoder(Decoder):
         hidden_layer_sizes (_type_): 隐藏层大小列表
         activation (str, optional): 激活函数. Defaults to 'relu'.
     """        
-    def __init__(self, n, hidden_layer_sizes, activation='relu'):
+    def __init__(self, n, in_features, hidden_layer_sizes, activation='relu'):
         super().__init__()
         # 动作数量
         self.n = n
         # 定义隐藏层序列
         layers = []
-        layer_sizes = [CommonLayerSize] + hidden_layer_sizes
+        layer_sizes = [in_features] + hidden_layer_sizes
         for in_f, out_f in zip(layer_sizes[:-1], layer_sizes[1:]):
             layers.append(nn.Linear(in_f, out_f))
             if activation == 'relu':
@@ -31,7 +30,7 @@ class GaussianDecoder(Decoder):
         # 初始化log_std变量
         self.log_std = nn.Parameter(torch.zeros(n, dtype=torch.float32), requires_grad=True)
         # 定义动作嵌入层
-        self.action_embedding = nn.Linear(n, CommonLayerSize)
+        self.action_embedding = nn.Linear(n, in_features)
 
     def forward(self, inputs, action_mask=None, behavior_action=None):
         # 通过隐藏层序列处理输入

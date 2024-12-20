@@ -1,3 +1,4 @@
+from __future__ import annotations
 import networkx as nx
 import torch
 from networkx import is_directed_acyclic_graph, topological_sort
@@ -5,7 +6,7 @@ from torch import Value, nn
 from torch.nn import functional as F
 from typing import TYPE_CHECKING, Any, Dict, List, Callable, OrderedDict, Union
 
-from . import Encoder, Decoder, Aggregator, ValueApproximator
+from hyuRL.src.network import Encoder, Decoder, Aggregator, ValueApproximator
 
 HIDDEN_PREFIX = "__hidden_state_"
 EMBEDING_PREFIX = "__embedding_"
@@ -18,36 +19,118 @@ ACTION = "action"
 VALUE = "value"
 HIDDEN_STATE = "hidden_state"
 
+from hyuRL.src.api.net.net import CommanderNetworkConfig
+from hyuRL.src.api.net.net import CommonEncoderConfig, EntityEncoderConfig, SpatialEncoderConfig
+from hyuRL.src.api.net.net import CategoricalDecoderConfig, GaussianDecoderConfig, SingleSelectiveDecoderConfig
 
-is_class_dict = lambda class_dict : ("class" in class_dict) and ("params" in class_dict)
+from hyuRL.src.network import CommonEncoder, EntityEncoder, SpatialEncoder
+from hyuRL.src.network import CategoricalDecoder, GaussianDecoder, SingleSelectiveDecoder
+from hyuRL.src.network import DenseAggregator
+from hyuRL.src.network import ValueApproximator
 
-def construct(class_dict: Dict):
-    """根据 config dict, 从对应的 network component class 中实例化一个对应的网络组件"""
 
-    if not is_class_dict(class_dict):
-        raise ValueError(
-            f"Expected a dict with keys 'class' and 'params', but got {class_dict}"
-        )
+def generate(config):
 
-    class_ = class_dict["class"]
-    params = class_dict["params"]
-    print(class_.__name__)
-    return class_(**params)
+    if not isinstance(config, CommanderNetworkConfig):
+        raise Exception("You need provice a config use class : [CommanderNetworkConfig]")
+    DefaultFeatureLength = 256
+    module_dict = {}
+    config.quick_dict = {}
+    for encoder_cfg in config.encoders:
+        name = encoder_cfg.get_name()
+            
+        if isinstance(encoder_cfg, CommonEncoderConfig):
+            encoder = CommonEncoder(
+                in_features=encoder_cfg.feature_size, 
+                hidden_layer_sizes=encoder_cfg.hidden_layer_sizes,
+                output_size=DefaultFeatureLength
+            )
+        elif isinstance(encoder_cfg, EntityEncoderConfig):
+            encoder = EntityEncoder(
+                length=encoder_cfg.length, 
+                in_features=encoder_cfg.feature_size, 
+                hidden_layer_sizes=encoder_cfg.hidden_layer_sizes,
+                output_size=DefaultFeatureLength,
+                transformer=encoder_cfg.transformer,
+                pooling=encoder_cfg.pooling,
+            ) 
+        elif isinstance(encoder_cfg, SpatialEncoderConfig):
+            encoder = SpatialEncoder(
+                in_shape=encoder_cfg.shape, 
+                in_features= encoder_cfg.feature_size, 
+                channel_num= encoder_cfg.channel_num, 
+                output_size= DefaultFeatureLength,
+                down_samples= encoder_cfg.down_samples,
+                res_block_num= encoder_cfg.res_block_num,
+            )
+        else:
+            raise Exception(f"Not Supported Encoder : {type(encoder_cfg)}")
+        encoder_cfg.dependency = [encoder_cfg.feature_set.name]
+        module_dict[name] = encoder
+        config.quick_dict[name] = encoder_cfg
+    
+    
+    aggregator = DenseAggregator(
+        in_features = DefaultFeatureLength * len(config.encoders),
+        hidden_layer_sizes = config.aggregator.hidden_layer_sizes,
+        output_size = DefaultFeatureLength
+    )
+    name = config.aggregator.get_name()
+    module_dict[name] = aggregator
+    config.aggregator.dependency = [encoder.get_name() for encoder in config.encoders]
+    config.quick_dict[name] = config.aggregator
+    
+    value = ValueApproximator(
+        in_features = DefaultFeatureLength,
+        hidden_layer_sizes = config.value.hidden_layer_sizes,
+    )
+    name = config.value.get_name()
+    module_dict[name] = value
+    config.value.dependency = [config.aggregator.get_name()]
+    config.quick_dict[name] = config.value
+    
+    
+    for decoder_cfg in config.decoders:
+        name = decoder_cfg.get_name()
+            
+        if isinstance(decoder_cfg, CategoricalDecoderConfig):
+            decoder = CategoricalDecoder(
+                n = decoder_cfg.n,
+                in_features = DefaultFeatureLength,
+                hidden_layer_sizes=encoder_cfg.hidden_layer_sizes) 
+        elif isinstance(decoder_cfg, GaussianDecoderConfig):
+            decoder = GaussianDecoder(
+                n = decoder_cfg.n,
+                in_features = DefaultFeatureLength,
+                hidden_layer_sizes=decoder_cfg.hidden_layer_sizes,
+            ) 
+        elif isinstance(decoder_cfg, SingleSelectiveDecoderConfig):
+            decoder = SingleSelectiveDecoder(
+                in_features = DefaultFeatureLength,
+                attention_size = decoder_cfg.attention_size,
+            )
+        else:
+            raise Exception("Not Supported Encoder")
+        module_dict[name] = decoder
+        if not decoder_cfg.dependency:
+            decoder_cfg.dependency = [config.aggregator.get_name()]
+        config.quick_dict[name] = decoder_cfg
 
+    return module_dict
+
+CommanderNetworkConfig.generate = lambda self: generate(self)
 
 def construct_dag(config_dict, model_dict):
-    # 有向无环图的网络, 可以依赖两类数据
-    #   1. input_dict的数据
-    #   2. 前置网络的输出数据
     dag = nx.DiGraph()  # 构造有向图
-    for sub_model_name, sub_model_config in config_dict.items():
-        sub_model = model_dict[sub_model_name]
-        sub_model.name = sub_model_name
-        inputs = sub_model_config.get("inputs", [])
-        if not isinstance(inputs, List):
-            inputs = [inputs]
-        for source in inputs:
-            dag.add_edge(source, sub_model_name)
+    for net_cfg in config_dict.encoders + config_dict.decoders + [config_dict.aggregator] + [config_dict.value]:
+        sub_model = model_dict[net_cfg.get_name()]
+        sub_model.name = net_cfg.get_name()
+        dependency = net_cfg.dependency
+        if not isinstance(dependency, List):
+            dependency = [dependency]
+
+        for depend_name in dependency:
+            dag.add_edge(depend_name, net_cfg.get_name())
     if not is_directed_acyclic_graph(dag):
         raise Exception("神经网络依赖异常: 网络配置有环")
     return dag, topological_sort(dag)
@@ -58,17 +141,14 @@ class ComplexNetwork(nn.Module):
     模板化的神经网络
 
     Args:
-        network_config (_type_): _description_
+        network_config (CommanderNetworkConfig): 基于Commander的神经网络配置
     """  
 
-    def __init__(self, network_config):
+    def __init__(self, network_config: CommanderNetworkConfig):
         super().__init__()
-        self._network_config: Union[Dict] = network_config
+        self._network_config: CommanderNetworkConfig = network_config
         self.sub_model_dict = nn.ModuleDict(
-            {
-                name: construct(submodel_config)
-                for name, submodel_config in self._network_config.items()
-            }
+            self._network_config.generate()
         )
         for k, v in self.sub_model_dict.items():
             setattr(v, "__label__", f"{type(v).__name__}: {k}")
@@ -89,9 +169,9 @@ class ComplexNetwork(nn.Module):
             sub_model: Union[Encoder, Decoder, Aggregator, ValueApproximator] = (
                 self.sub_model_dict[node_name]
             )
-            sub_model_config = self._network_config[node_name]
+            sub_model_config = self._network_config.quick_dict.get(node_name)
             inputs = []
-            for source in sub_model_config.get("inputs", []):
+            for source in sub_model_config.dependency:
                 if state_dict and source in state_dict:
                     inputs.append(state_dict[source])
             # inputs = [ state_dict[source] for source in sub_model_config.get('inputs', []) ]
@@ -127,7 +207,7 @@ class ComplexNetwork(nn.Module):
 
             elif isinstance(sub_model, Decoder):
                 inputs = torch.concat(inputs, -1)
-                source_encoder_name = sub_model_config.get("source_encoder_name", None)
+                source_encoder_name = sub_model_config.source_encoder_name
                 if source_encoder_name:
                     source_embeddings = state_dict[
                         EMBEDING_PREFIX + source_encoder_name
@@ -136,7 +216,7 @@ class ComplexNetwork(nn.Module):
                     source_embeddings = state_dict.get(
                         "default_source_embeddings", self._default_source_embeddings
                     )
-                mask_config = sub_model_config.get("mask", None)
+                mask_config = sub_model_config.mask
                 if not mask_config:
                     mask = None
                 elif isinstance(mask_config, str):
@@ -217,58 +297,3 @@ class ComplexNetwork(nn.Module):
     #         )
     #     return aggregator_output, aggregator_state
 
-
-if __name__ == "__main__":
-    from src.network.encoder.common import CommonEncoder
-    from src.network.decoder.categorical import CategoricalDecoder
-    from src.network.app_value import ValueApproximator
-    from src.network.aggregator.dense import DenseAggregator
-
-    network_cfg = {
-        "encoder_demo": {
-            "class": CommonEncoder,
-            "params": {
-                "in_features": 128,
-                "hidden_layer_sizes": [256, 128],
-                # "out_features": 64,
-            },
-            "inputs": ["feature_a"],
-        },
-        "aggregator": {
-            "class": DenseAggregator,
-            "params": {
-                "in_features": 128,
-                "hidden_layer_sizes": [256, 128],
-                "output_size": 256,
-            },
-            "inputs": ["encoder_demo"],
-        },
-        "value_app": {
-            "class": ValueApproximator,
-            "params": {
-                "in_features": 256,
-                "hidden_layer_sizes": [256, 128],
-            },
-            "inputs": ["aggregator"],
-        },
-        "action_1": {
-            "class": CategoricalDecoder,
-            "params": {
-                "n": 5,
-                "hidden_layer_sizes": [256, 128],
-            },
-            "inputs": ["aggregator"],
-        },
-        "action_2": {
-            "class": CategoricalDecoder,
-            "params": {
-                "n": 3,
-                "hidden_layer_sizes": [256, 128],
-            },
-            "inputs": ["action_1"],
-        },
-    }
-
-    network = ComplexNetwork(network_cfg)
-    output = network({"feature_a": torch.rand(128, 128)})
-    print(output["action"].values())

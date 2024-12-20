@@ -2,45 +2,90 @@ from __future__ import annotations
 
 import copy
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 import numpy as np
 
-from drill.keys import (ACTION, ACTION_MASK, ADVANTAGE, CRITIC_HIDDEN_STATE, DECODER_MASK, DONE,
-                        HIDDEN_STATE, LOGITS, REWARD, DROP_OUT)
+from drill.keys import (
+    ACTION,
+    ACTION_MASK,
+    ADVANTAGE,
+    CRITIC_HIDDEN_STATE,
+    DECODER_MASK,
+    DONE,
+    HIDDEN_STATE,
+    LOGITS,
+    REWARD,
+    DROP_OUT,
+)
 from drill.pipeline import ActionData
+from drill import flow
 
 if TYPE_CHECKING:
     from drill.builder import Builder
+from drill.local.local import EnvironmentDescription
+
+    
+class FlowEnvImp:
+    """
+    创建一个新的环境
+    用户需要提供一个environment_creator给Flow, Flow会使用形如 environment_creator(environment_descriptor) 的 调用方式创建Environment Object. 因此如果此类型的__init__方法参数只有environment_descriptor, 可以直接将类型名 作为environment_creator.
+    参数
+    environment_descriptor (flow.api.EnvironmentDescriptor) –
+    """
+
+    def __init__(self, environment_descriptor):
+        pass
+    
+    def reset(self):
+        return 
+    
+    def observe(self):
+        pass
+    
+    def step(agent_name, action): 
+        pass
+    
+    def enhance_fragment(agent_name, fragment):
+        pass
 
 
-class FlowEnvPPOSync:
-    """ [flow.api.Environment](https://docs.inspir.work/flow/flow/tutorial.html#flow.api.Environment) 的一个实现，
+class FlowEnvExtend:
+    """[flow.api.Environment](https://docs.inspir.work/flow/flow/tutorial.html#flow.api.Environment) 的一个实现，
     负责和 model 交互产生样本
 
     Attributes
     ----------
     environment_description: flow.api.EnvironmentDescriptor
-        云端训练，使用 flow.EnvironmentDescriptor
+        云端训练，使用 flow.api.EnvironmentDescriptor
         本地调试，使用 drill.local.local.EnvironmentDescription
     """
 
-    def __init__(self, environment_description: 'flow.EnvironmentDescriptor'):
-        builder: Builder = environment_description.environment_creator_user_args['builder']
+    def __init__(self, environment_description: "flow.api.EnvironmentDescriptor"):
+        builder: Builder = environment_description.environment_creator_user_args[
+            "builder"
+        ]
         env_id = environment_description.environment_id_on_this_task
-        env_extra_info = {'node_id': environment_description.node_id,
-                          'num_envs_on_this_node': environment_description.num_envs_on_this_node,
-                          'num_envs_on_this_actor': environment_description.num_envs_on_this_actor,
-                          'environment_id_on_this_node': environment_description.environment_id_on_this_node,
-                          'environment_id_on_this_actor': environment_description.environment_id_on_this_actor}
-        env_extra_info.update(environment_description.environment_creator_user_args['extra_info'])
-        self._episode_mode_bool = environment_description.environment_creator_user_args['episode_mode']
+        env_extra_info = {
+            "node_id": environment_description.node_id,
+            "num_envs_on_this_node": environment_description.num_envs_on_this_node,
+            "num_envs_on_this_actor": environment_description.num_envs_on_this_actor,
+            "environment_id_on_this_node": environment_description.environment_id_on_this_node,
+            "environment_id_on_this_actor": environment_description.environment_id_on_this_actor,
+        }
+        env_extra_info.update(
+            environment_description.environment_creator_user_args["extra_info"]
+        )
+        self._episode_mode_bool = environment_description.environment_creator_user_args[
+            "episode_mode"
+        ]
         self._builder = builder
         self._env = builder.build_env(env_id, env_extra_info)
         # self._pipeline = builder.build_pipeline()
 
         self.flow_env_config = {}
-        self._episode_done = None    # record whether the episode is over
+        self._episode_done = None  # record whether the episode is over
         self._obs_data = None
 
         # 上个 action, logits, value
@@ -55,7 +100,7 @@ class FlowEnvPPOSync:
 
     @property
     def agent_names(self) -> List[str]:
-        """ 返回环境中当前剩余的 agents 的名字
+        """返回环境中当前剩余的 agents 的名字
 
         Returns
         -------
@@ -72,8 +117,7 @@ class FlowEnvPPOSync:
     #     pass
 
     def reset(self):
-        """ 重置状态，开始一个新的 episode
-        """
+        """重置状态，开始一个新的 episode"""
         self._obs_data = self._env.reset()
         self._episode_done = False
         self._last_hidden_state_dict = defaultdict(dict)
@@ -85,12 +129,14 @@ class FlowEnvPPOSync:
             predict_output_dict = self._last_hidden_state_dict[agent_name]
             hidden_state_dict = {HIDDEN_STATE: predict_output_dict[HIDDEN_STATE]}
             if CRITIC_HIDDEN_STATE in predict_output_dict:
-                hidden_state_dict[CRITIC_HIDDEN_STATE] = predict_output_dict[CRITIC_HIDDEN_STATE]
+                hidden_state_dict[CRITIC_HIDDEN_STATE] = predict_output_dict[
+                    CRITIC_HIDDEN_STATE
+                ]
             return hidden_state_dict
         return self._builder.get_initial_state(agent_name)
 
     def observe(self) -> Dict[str, Dict[str, Union[Dict, str]]]:
-        """ 获取 observation
+        """获取 observation
 
         Returns
         -------
@@ -123,13 +169,9 @@ class FlowEnvPPOSync:
         # agent_to_state, agent_to_reward = self._pipeline.pre_process(self._obs_data,
         #                                                              self._episode_done)
         # {self.agent_name : ObsData(obs, {"reward": reward})}, done
-        agent_to_state = {
-            k: v.obs
-            for k, v in self._obs_data.items()
-        }
+        agent_to_state = {k: v.obs for k, v in self._obs_data.items()}
         agent_to_reward = {
-            k: v.extra_info_dict['reward']
-            for k, v in self._obs_data.items()
+            k: v.extra_info_dict["reward"] for k, v in self._obs_data.items()
         }
         self._last_agent_to_reward.update(agent_to_reward)
         for agent_name in self.env.agent_names:
@@ -143,16 +185,15 @@ class FlowEnvPPOSync:
         if episode_done:
             self.reset()
             # agent_to_state, _ = self._pipeline.pre_process(self._obs_data, self._episode_done)
-            agent_to_state = {
-                k: v.obs
-                for k, v in self._obs_data.items()
-            }
+            agent_to_state = {k: v.obs for k, v in self._obs_data.items()}
         observe_return = {}
         for agent_name, agent_state_dict in agent_to_state.items():
             # TODO: recording each individual reward target
             reward = self._last_agent_to_reward[agent_name]
             if isinstance(reward, dict):
-                agent_state_dict[REWARD] = np.array(sum(reward.values()), dtype=np.float32)
+                agent_state_dict[REWARD] = np.array(
+                    sum(reward.values()), dtype=np.float32
+                )
             else:
                 agent_state_dict[REWARD] = np.array(reward, dtype=np.float32)
             agent_state_dict[DONE] = np.array(episode_done, dtype=np.float32)
@@ -160,16 +201,17 @@ class FlowEnvPPOSync:
             # agent_state_dict.update(hidden_state_dict)
 
             observe_return[agent_name] = {
-                'obs': agent_state_dict,
-                'model': self._builder.get_model_name(agent_name)
+                "obs": agent_state_dict,
+                "model": self._builder.get_model_name(agent_name),
             }
 
         self._agent_names = [agent_name for agent_name in observe_return.keys()]
         return observe_return
 
-    def step(self, agent_name: str, predict_output: Dict[str,
-                                                         Any]) -> Dict[str, Dict[str, np.ndarray]]:
-        """ 根据 model inference 的结果和环境进行交互。
+    def step(
+        self, agent_name: str, predict_output: Dict[str, Any]
+    ) -> Dict[str, Dict[str, np.ndarray]]:
+        """根据 model inference 的结果和环境进行交互。
         model 根据 observation 做 inference 得到的结果通过参数 `predict_output` 返回。
         注意：多智能体时，`observe` 可能同时返回所有 agent 的 observation 给 model 做
         inference，但是 `step` 的参数 `predict_output` 只包含参数 `agent_name` 对应的
@@ -199,16 +241,24 @@ class FlowEnvPPOSync:
         """
         if HIDDEN_STATE in predict_output:
             self._last_hidden_state_dict[agent_name][HIDDEN_STATE] = copy.deepcopy(
-                predict_output[HIDDEN_STATE])
+                predict_output[HIDDEN_STATE]
+            )
             if CRITIC_HIDDEN_STATE in predict_output:
-                self._last_hidden_state_dict[agent_name][CRITIC_HIDDEN_STATE] = copy.deepcopy(
-                    predict_output[CRITIC_HIDDEN_STATE])
+                self._last_hidden_state_dict[agent_name][CRITIC_HIDDEN_STATE] = (
+                    copy.deepcopy(predict_output[CRITIC_HIDDEN_STATE])
+                )
 
-        data = ActionData(action=copy.deepcopy(predict_output[ACTION]),
-                          predict_output=copy.deepcopy(predict_output))
+        data = ActionData(
+            action=copy.deepcopy(predict_output[ACTION]),
+            predict_output=copy.deepcopy(predict_output),
+        )
         # print("before pipeline post", data)
         # action_dict, action_mask, decoder_mask = self._pipeline.post_process(agent_name, data)
-        action_dict, action_mask, decoder_mask = {agent_name: data.action}, {agent_name: None}, {agent_name: {'action': np.ones(2)}}
+        action_dict, action_mask, decoder_mask = (
+            {agent_name: data.action},
+            {agent_name: None},
+            {agent_name: {"action": np.ones(2)}},
+        )
         if action_dict is not None:
             self._obs_data, self._episode_done = self._env.step(action_dict)
         #     for agent_name, mask in action_mask.items():
@@ -218,7 +268,7 @@ class FlowEnvPPOSync:
         return {DECODER_MASK: decoder_mask}
 
     def enhance_fragment(self, agent_name: str, fragments: List[Dict]):
-        """ 对不断 `observe` 和 `step` 收集的数据进行处理，这里计算了 GAE
+        """对不断 `observe` 和 `step` 收集的数据进行处理，这里计算了 GAE
 
         什么时候调用这个方法？
         一次 `observe` 和 `step` 收集的数据记为一个 fragment，当收集到的数据达到
@@ -253,12 +303,12 @@ class FlowEnvPPOSync:
         drop_outs = []
 
         for i in range(len(fragments)):
-#             print(f"fragments is {fragments[i]}")
-#             raise ValueError(f"fragment {i} is {fragments[i]}")
+            #             print(f"fragments is {fragments[i]}")
+            #             raise ValueError(f"fragment {i} is {fragments[i]}")
             flow_state_dict, flow_action_dict, _ = fragments[i]
             values.append(flow_action_dict["value"])
-            rewards.append(flow_state_dict['reward'])
-            dones.append(flow_state_dict['done'])
+            rewards.append(flow_state_dict["reward"])
+            dones.append(flow_state_dict["done"])
             if DROP_OUT in flow_state_dict:
                 drop_outs.append(flow_state_dict[DROP_OUT])
             else:
@@ -266,9 +316,14 @@ class FlowEnvPPOSync:
             # fragments[i][-1][ACTION_MASK] = self._dynamic_mask_history[agent_name][i]
 
         if self._episode_mode_bool:
-            rewards.append(np.array(self._last_agent_to_reward[agent_name]['reward'], dtype=np.float32))
+            rewards.append(
+                np.array(
+                    self._last_agent_to_reward[agent_name]["reward"], dtype=np.float32
+                )
+            )
             dones.append(self._last_agent_to_done[agent_name])
-            values.append(np.array(0., dtype=np.float32))
+            values.append(np.array(0.0, dtype=np.float32))
+
         # advantages = self._pipeline.batch_process(agent_name, rewards, values, dones)
         def cal_gae(rewards, values, dones):
             advantages = []
@@ -276,12 +331,13 @@ class FlowEnvPPOSync:
             gamma: float = 0.99
             lamb: float = 0
             for i in reversed(range(len(rewards) - 1)):
-                reward, value, next_value = rewards[i+1], values[i], values[i+1]
+                reward, value, next_value = rewards[i + 1], values[i], values[i + 1]
                 non_terminate = 1 - int(dones[i + 1])
                 delta = reward - (value - gamma * next_value * non_terminate)
-                advantage = delta + gamma * lamb * advantage * non_terminate    
+                advantage = delta + gamma * lamb * advantage * non_terminate
                 advantages.append(advantage)
             return list(reversed(advantages))
+
         advantages = cal_gae(rewards, values, dones)
 
         # 算好advantage后将其append到fragments中
@@ -293,7 +349,9 @@ class FlowEnvPPOSync:
         advantages_len = len(advantages)
 
         for i in range(advantages_len):
-            fragments[i].append({ADVANTAGE: np.asarray(advantages[i], dtype=np.float32)})
+            fragments[i].append(
+                {ADVANTAGE: np.asarray(advantages[i], dtype=np.float32)}
+            )
         if fragments_len == advantages_len + 1:
             fragments.pop(-1)
             # del self._dynamic_mask_history[agent_name]
@@ -303,7 +361,7 @@ class FlowEnvPPOSync:
                 fragments.pop(i)
 
     def render(self, **kwargs):
-        if hasattr(self._env, 'render'):
-            return self._env.render(**kwargs)    # type: ignore
+        if hasattr(self._env, "render"):
+            return self._env.render(**kwargs)  # type: ignore
         else:
             raise RuntimeError("self._env does not have a render method!")
