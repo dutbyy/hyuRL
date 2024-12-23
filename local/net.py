@@ -1,5 +1,7 @@
-from src.network import *
-
+from hyuRL.src.network import *
+from hyuRL.src.feature.feature import *
+from hyuRL.src.feature.feature_set import *
+from hyuRL.src.api.net.net import *
 
 network_cfg = {
     "encoder_demo" : {
@@ -31,6 +33,7 @@ network_cfg = {
         "class": CategoricalDecoder,
         "params": {
             "n" : 2,
+            "in_features" : 256,
             "hidden_layer_sizes": [128, 128],
         },
         "inputs": ['aggregator']
@@ -43,3 +46,18 @@ def get_model():
     model = ComplexNetwork(network_cfg)
     # model.to('cuda')
     return model
+
+
+
+network_cfg = CommanderNetworkConfig(
+    encoders=[
+        CommonEncoderConfig(
+            feature_set=CommonFeatureSet(
+                name="feature_a", feature_dict={"common": VectorFeature(4)}
+            )
+        ),
+    ],
+    decoders=[
+        CategoricalDecoderConfig(name="action", n=2),
+    ],
+)

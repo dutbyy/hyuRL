@@ -1,6 +1,6 @@
 import torch
 
-from local.predictor import serve
+from hyuRL.local.predictor import serve
 
 def predictor_server(network_config):
     import asyncio

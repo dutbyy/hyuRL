@@ -92,7 +92,7 @@ def convert_to_batch_state(states):
             sub_states = [s[key] for s in states]
             batch_state_dict[key] = convert_to_batch_state(sub_states)
         else:
-            batch_state_dict[key] = np.stack([s[key] for s in states])
+            batch_state_dict[key] = torch.from_numpy(np.stack([s[key] for s in states]))
     return batch_state_dict
 
 def split_outputs(results):
@@ -107,6 +107,14 @@ def split_outputs(results):
                     outputs.append({key: inner_output})
         elif isinstance(value, np.ndarray):
             rows = np.split(value, len(value))
+            for i, row in enumerate(rows):
+                row = np.squeeze(row)
+                if i < len(outputs):
+                    outputs[i][key] = row
+                else:
+                    outputs.append({key: row})
+        elif isinstance(value, torch.Tensor):
+            rows = np.split(value.cpu().numpy(), len(value))
             for i, row in enumerate(rows):
                 row = np.squeeze(row)
                 if i < len(outputs):
@@ -158,7 +166,6 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
     async def UpdateWeight(self, request, context):
         # self._model.update_weight(request.model_name, request.weights)
         state_dict = pickle.loads(request.weight)
-        print(f"state dict is {state_dict.keys()}")
         self._model._network.load_state_dict(state_dict)
         response = predictor_pb2.UpdateWeightRsp(
             weight = pickle.dumps(self._model._network.state_dict()),
@@ -224,7 +231,7 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
                 def batch_inference(requests):
                     inputs = convert_to_batch_state([it[0] for it in requests])
                     # auto_move(inputs, 'cuda')
-                    results, _ = self._model.inference(inputs)
+                    results = self._model.predict(inputs)
                     results = split_outputs(results)
                     # results = [{} for i in requests]
                     for idx, (_, future) in enumerate(requests):

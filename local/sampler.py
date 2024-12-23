@@ -95,7 +95,7 @@ class SingleSampler:
                 logp = 0  # self.policy._network.log_probs(outputs['logits'], outputs['action'], action_mask)
                 # logp =  await self.predictor.log_probs(outputs['logits'], outputs['action'], action_mask)
                 fragment.store(
-                    {"feature_a": torch.Tensor(state)},
+                    {"feature_a": state},
                     outputs["action"],
                     reward,
                     logp,
@@ -124,7 +124,7 @@ class SingleSampler:
                     env_eplased_times = []
                     if not done:
                         fragment.store(
-                            {"feature_a": torch.Tensor(state)},
+                            {"feature_a": state},
                             outputs["action"],
                             reward,
                             logp,

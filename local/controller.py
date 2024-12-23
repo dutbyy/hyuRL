@@ -1,26 +1,31 @@
 from multiprocessing import Process
-from src.tools.common import timer_decorator
-import torch
+from hyuRL.src.tools.common import timer_decorator
 import logging
 logger = logging.getLogger('my_logger')
 logger.setLevel(logging.INFO)
 
 
 
-from local.sampler import Sampler
-from local.trainer import LocalTrainer
-from local.predictor import serve
-from src.algo.PPOPolicy import PPOPolicy
-from src.memory.buffer import Memory
-from local.predictor import PredictorClient
+from hyuRL.local.sampler import Sampler
+from hyuRL.local.trainer import LocalTrainer
+from hyuRL.local.predictor import serve
+from hyuRL.src.algo.PPOPolicy import PPOPolicy
+from hyuRL.src.memory.buffer import Memory
+from hyuRL.local.predictor import PredictorClient
 import time
 
 import pickle
 
-
+def trans2tensor(nested_structure):   
+    import tree
+    import torch
+    # print(nested_structure)
+    return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
+    
+    
 class Controller:
     def __init__(self) -> None:
-        self.batch_size = 1024 * 4
+        self.batch_size = 1024
         self.__init_logger()
 
     def __init_logger(self):
@@ -68,6 +73,10 @@ class Controller:
         while True:
             train_step += 1
             train_data = self.generate_data()
+            # 定义一个递归函数来处理嵌套结构
+
+    
+            train_data = trans2tensor(train_data)
             eplased_times = self.trainer.train(train_data)
             # print('每次迭代耗时', eplased_times)
             # self.sampler.set_weight(self.trainer.get_state_dict())
@@ -89,42 +98,8 @@ class Controller:
 if __name__ == '__main__':
     import multiprocessing
     multiprocessing.set_start_method('spawn')
-    from src.network import *
-    network_cfg = {
-        "encoder_demo" : {
-            "class": CommonEncoder,
-            "params": {
-                "in_features" : 4,
-                "hidden_layer_sizes": [256, 128],
-            },
-            "inputs": ['feature_a']
-        },
-        "aggregator": {
-            "class": DenseAggregator,
-            "params": {
-                "in_features" : 128,
-                "hidden_layer_sizes": [256, 128],
-                "output_size": 256
-            },
-            "inputs": ['encoder_demo']
-        },
-        "value_app": {
-            "class": ValueApproximator,
-            "params": {
-                "in_features" : 256,
-                "hidden_layer_sizes": [256, 256, 128],
-            },
-            "inputs": ['aggregator']
-        },
-        "action" : {
-            "class": CategoricalDecoder,
-            "params": {
-                "n" : 2,
-                "hidden_layer_sizes": [128, 128],
-            },
-            "inputs": ['aggregator']
-        }
-    }
+    
+    from hyuRL.local.net import network_cfg
     controller = Controller()
     controller.train_run(network_cfg)
     # controller.eval(network_cfg)
