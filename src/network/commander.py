@@ -6,7 +6,6 @@ from torch import Value, nn
 from torch.nn import functional as F
 from typing import TYPE_CHECKING, Any, Dict, List, Callable, OrderedDict, Union
 
-from hyuRL.src.network import Encoder, Decoder, Aggregator, ValueApproximator
 
 HIDDEN_PREFIX = "__hidden_state_"
 EMBEDING_PREFIX = "__embedding_"
@@ -19,10 +18,13 @@ ACTION = "action"
 VALUE = "value"
 HIDDEN_STATE = "hidden_state"
 
+
+
 from hyuRL.src.api.net.net import CommanderNetworkConfig
 from hyuRL.src.api.net.net import CommonEncoderConfig, EntityEncoderConfig, SpatialEncoderConfig
 from hyuRL.src.api.net.net import CategoricalDecoderConfig, GaussianDecoderConfig, SingleSelectiveDecoderConfig
 
+from hyuRL.src.network import Encoder, Decoder, Aggregator, ValueApproximator
 from hyuRL.src.network import CommonEncoder, EntityEncoder, SpatialEncoder
 from hyuRL.src.network import CategoricalDecoder, GaussianDecoder, SingleSelectiveDecoder
 from hyuRL.src.network import DenseAggregator

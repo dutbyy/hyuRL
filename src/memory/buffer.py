@@ -4,7 +4,7 @@ import stat
 import torch
 import numpy as np
 
-from src.tools.gae import calculate_gae
+from hyuRL.src.tools.gae import calculate_gae
 
 
 class Fragment:
@@ -171,11 +171,11 @@ class Memory:
         # states_np = {k: np.array([v[i] for i in batch_indices]) for k, v in self.states.items()}
 
         return {
-            "states": {
+            "state_dict": {
                 k: np.array([v[i] for i in batch_indices])
                 for k, v in self.states.items()
             },
-            "actions": {
+            "action": {
                 k: np.array([v[i] for i in batch_indices])
                 for k, v in self.actions.items()
             },
@@ -183,7 +183,7 @@ class Memory:
                 k: np.array([v[i] for i in batch_indices])
                 for k, v in self.logits.items()
             },
-            "masks": {
+            "action_mask": {
                 k: np.array([v[i] for i in batch_indices])
                 for k, v in self.masks.items()
             },
@@ -191,6 +191,6 @@ class Memory:
             #     k: torch.stack([torch.as_tensor(v[i]) for i in batch_indices])
             #     for k, v in self.log_probs.items()
             # },
-            "advantages": np.array([self.advantages[i] for i in batch_indices]),
-            "values": np.array([self.values[i] for i in batch_indices]),
+            "advantage": np.array([self.advantages[i] for i in batch_indices]),
+            "value": np.array([self.values[i] for i in batch_indices]),
         }

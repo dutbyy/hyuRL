@@ -2,6 +2,7 @@ import timeit
 import torch
 import tree
 from hyuRL.src.network.commander import ComplexNetwork
+# from hyuRL.src.network.complex import ComplexNetwork
 from hyuRL.src.loss.ppo import PPOLoss
 from hyuRL.src.memory.buffer import Memory
 from hyuRL.src.tools.gpu import auto_move
@@ -15,7 +16,7 @@ class PPOPolicy:
         self._network = ComplexNetwork(network_config)
         self._network.to(self.device)
         self._optimizer = torch.optim.Adam(self._network.parameters(), lr=1e-4)
-        self._loss_fn = PPOLoss(clip_epsilon=0.1, entropy_coef=0.0)
+        self._loss_fn = PPOLoss(clip_epsilon=0.2, entropy_coef=0.0)
         self.memory = Memory()
 
     def train_mode(self):
@@ -26,41 +27,20 @@ class PPOPolicy:
 
     def predict(self, state_input):
         a = timeit.default_timer() * 1000
-
-        # state_input = tree.map_structure(
-        #     lambda x: torch.from_numpy(x).cuda() if self.device == 'cuda' else torch.from_numpy(x),
-        #     state_input,
-        # )
-
         with torch.no_grad():
             outputs = self._network(state_input)
-
-        # outputs = tree.map_structure(
-        #     lambda x: x.numpy(),
-        #     outputs,
-        # )
-
         b = timeit.default_timer() * 1000
-        eplased_time = b - a
         return outputs
 
     def learn(self, trainning_data: Dict[str, Any]):
-        trainning_data = tree.map_structure(
-            lambda x: torch.from_numpy(x).cuda() if self.device == 'cuda' else torch.from_numpy(x),
-            trainning_data,
-        )
-        
-        inputs_dict = trainning_data["states"]
-        behavior_action_dict = trainning_data.get("actions")
+        inputs_dict = trainning_data["state_dict"]
+        behavior_action_dict = trainning_data.get("action")
         behavior_logits_dict = trainning_data.get("logits")
-        behavior_mask_dict = trainning_data.get("masks")
-        behavior_values = trainning_data.get("values")
-        advantages = trainning_data.get("advantages")
+        behavior_mask_dict = trainning_data.get("action_mask")
+        behavior_values = trainning_data.get("value")
+        advantages = trainning_data.get("advantage")
         target_value = advantages + behavior_values
-        # old_logp_dict_jilu = trainning_data.get("log_probs")
-        # old_logp = sum(
-        #     old_logp_dict_jilu.values()
-        # )  # 在动作维度合并logp (相当于动作概率连乘)
+
 
         with torch.no_grad():
             old_logp_dict_running = self._network.log_probs(
@@ -71,7 +51,7 @@ class PPOPolicy:
         eplased_times = []
         import time
 
-        for epoch in range(20):
+        for epoch in range(10):
             btime = time.time()
             predict_output_dict = self._network(
                 inputs_dict, behavior_action_dict, training=True
@@ -103,4 +83,10 @@ class PPOPolicy:
             torch.nn.utils.clip_grad_norm_(self._network.parameters(), 40.0)
             self._optimizer.step()
             eplased_times.append(round(time.time() * 1000 - btime * 1000, 1))
-        return 
+        return {
+            "loss": loss.detach(),
+            # "policy_loss": policy_loss,
+            # "value_loss": value_loss,
+            # "entropy": entropy,
+            # "ratio_diff": ratio,
+        }

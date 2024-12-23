@@ -1,6 +1,6 @@
 import os
-from .flow_env_ppo_sync import FlowEnvPPOSync as FlowEnvPPO
-from .flow_model_ppo_sync import FlowModelPPOSync
+from .interface.flow_env import FlowEnvImp as FlowEnvPPO
+from .interface.flow_model import FlowModelPPOSync 
 import numpy as np
 import time
 from typing import Dict

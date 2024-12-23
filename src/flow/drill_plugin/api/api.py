@@ -2,12 +2,21 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Tuple, Optional, Union
+from dataclasses import dataclass, field
 import numpy as np
 
-from .flow_api import Model, Environment
-"""
-用户需要自定义的环境接口, Agent接口
-"""
+@dataclass
+class ObsData:
+    obs: Dict[str, Any]
+    extra_info_dict: Dict[str, Any] = field(default_factory=dict)
+    agent_name: str = ""
+
+@dataclass
+class ActionData:
+    action: Dict[str, np.ndarray]
+    predict_output: Dict[str, np.ndarray]
+    action_mask: Dict[str, np.ndarray] = field(default_factory=dict)    # action_head name to mask
+    agent_name: str = ""
 
 
 class Env(ABC):

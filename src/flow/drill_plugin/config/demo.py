@@ -8,7 +8,7 @@ from hyuRL.src.api.net import CategoricalDecoderConfig, GaussianDecoderConfig, S
 from hyuRL.src.api.net import AggregatorConfig
 from hyuRL.src.api.net import DenseAggregatorConfig
 
-from ..api.net_api import CommanderNetworkConfig, NetConfig
+from hyuRL.src.flow.drill_plugin.api.net_api import CommanderNetworkConfig, NetConfig
 
 
 ConfigMapping = {

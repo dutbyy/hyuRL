@@ -1,14 +1,16 @@
 """
 仿照Flow文档 http://11.1.203.3:8787/flow 提供的的一套Api抽象类和数据类
 """
+
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, List, Any, Tuple, Optional, Union
 from numpy.typing import NDArray
-import numpy as np 
+import numpy as np
 
 NestedNDArray = Union[NDArray, List[Any], Dict[str, Any]]
+
 
 @dataclass
 class EnvironmentDescriptor:
@@ -19,11 +21,12 @@ class EnvironmentDescriptor:
     environment_id_on_this_actor: int
     environment_id_on_this_task: int
     environment_creator_user_args: any
+
+
 # Drill-限制
 class Builder:
-    """用于创建 `CommanderAgent`, `Env`, `Pipeline` 的构建器
-    """
-    
+    """用于创建 `CommanderAgent`, `Env`, `Pipeline` 的构建器"""
+
     @property
     def backend(self) -> str:
         """使用的后端，tensorflow or pytorch
@@ -111,7 +114,7 @@ class Builder:
         """
         raise NotImplementedError
 
-    def build_env(self, env_id: int, extra_info) :
+    def build_env(self, env_id: int, extra_info):
         """构建 env
 
         Parameters
@@ -220,8 +223,8 @@ class Environment:
         """用户需要原地更改输入的fragment, 并保证更改后的fragment类型 为list of enhanced transitions,
             其中enhanced transition的类型为nested np.array, 且其shape和dtype都必须固定
             可以认为 默认的fragments 是一系列的transitions
-            transitions本身就是一个step的 s, a, r 
-            即 原始的 
+            transitions本身就是一个step的 s, a, r
+            即 原始的
                 1. agent2state (env.observe 返回值)
                 2. agent2action (env.step 参数)
                 3. agent2reward (env.step 返回值)
@@ -229,7 +232,7 @@ class Environment:
             fragment_size: 确定什么时候调用一次enhance_fragments
             transition: 训练数据的最小单元, replay_size决定连续性
                 这个在model.learn的时候, 称为了piece?
-            
+
         Args:
             agent_name (str): agent名称
             fragment (List[Tuple[NDArray, NDArray, NDArray]]): 长度在[1, fragment_size]范围内的list, 每个元素为长度为3的list[obs, action, reward]
@@ -245,10 +248,9 @@ class Model:
         raise NotImplementedError("This method is not yet implemented")
 
     def __getstate__(self):
-        """ 返回可使用pickle序列化的Model State
-        """
+        """返回可使用pickle序列化的Model State"""
         raise NotImplementedError("This method is not yet implemented")
-    
+
     def setstate_learn(self, state: NestedNDArray):
         raise NotImplementedError("This method is not yet implemented")
 
@@ -264,12 +266,11 @@ class Model:
     def get_weights(self):
         raise NotImplementedError("This method is not yet implemented")
 
-    def set_weights(self, weights:NestedNDArray):
+    def set_weights(self, weights: NestedNDArray):
         raise NotImplementedError("This method is not yet implemented")
 
     def load_weights(self, model_path: str, backend: str, mode):
         raise NotImplementedError("This method is not yet implemented")
 
-    def set_config(config): 
+    def set_config(config):
         pass
-    

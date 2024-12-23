@@ -1,11 +1,12 @@
-import networkx as nx
-import torch
+from __future__ import annotations
 from networkx import is_directed_acyclic_graph, topological_sort
-from torch import Value, nn
+from torch import nn
 from torch.nn import functional as F
 from typing import TYPE_CHECKING, Any, Dict, List, Callable, OrderedDict, Union
+import networkx as nx
+import torch
 
-from . import Encoder, Decoder, Aggregator, ValueApproximator
+from hyuRL.src.network import Encoder, Decoder, Aggregator, ValueApproximator
 
 HIDDEN_PREFIX = "__hidden_state_"
 EMBEDING_PREFIX = "__embedding_"

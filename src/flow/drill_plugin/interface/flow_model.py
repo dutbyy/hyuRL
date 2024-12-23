@@ -28,6 +28,10 @@ def trans2tensor(nested_structure):
     except:
         return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
     
+# 定义一个递归函数来处理嵌套结构
+def trans2numpy(nested_structure):   
+    return tree.map_structure(lambda x: x.cpu().numpy(), nested_structure)
+    
 class FlowModelPPOSync(flow.Model):
 
     def __init__(self, model_name: str, builder: Builder):
@@ -80,8 +84,9 @@ class FlowModelPPOSync(flow.Model):
         self._sync_interval = self._builder._models[model_name]['params'].get('sync_interval', 1)
         self._learn_step = builder.learn_step
         self._update_step = 0
-        hvd = get_hvd(builder.backend)
-        if hvd.rank() == 0 and (model_name in builder.save_params):
+        # hvd = get_hvd(builder.backend)
+        # if hvd.rank() == 0 and (model_name in builder.save_params):
+        if model_name in builder.save_params:
             self._save_params = builder.save_params[model_name]
             Path(f'{self._save_params["path"]}/{self._model_name}').mkdir(parents=True, exist_ok=True)
         self.logger = None
@@ -111,28 +116,34 @@ class FlowModelPPOSync(flow.Model):
         behavior_info_dict.update(advantage)
         behavior_info_dict[DECODER_MASK] = mask_dict[DECODER_MASK]
 
-        try :
-            state_dict = trans2tensor(state_dict)
-            behavior_info_dict = trans2tensor(behavior_info_dict)
-        except Exception as e:
-            exc_info = traceback.format_exception(type(e), e, e.__traceback__)
-            exc_message = "".join(exc_info)
-            raise ValueError(f"origin error : {e}\n learn_message : {exc_message}")
+        traning_data = {"state_dict": state_dict}
+        traning_data.update(behavior_info_dict)
+
+        traning_data = trans2tensor(traning_data)
 
 
         try:
-            summary_dict = self._model.learn(state_dict, behavior_info_dict, episode=self._sync_interval)
+            summary_dict = self._model.learn(traning_data)
         except Exception as e:
             exc_info = traceback.format_exception(type(e), e, e.__traceback__)
             exc_message = "".join(exc_info)
             raise ValueError(f"origin error : {e}\n learn_message : {exc_message}")
 
-        for k, v in summary_dict.items():
-            summary.average(k, v)
+        summary_dict= trans2numpy(summary_dict)
 
-        hvd = get_hvd(self._builder.backend)
+        try:
+            for k, v in summary_dict.items():
+                summary.average(k, v)
+        except Exception as e:
+            exc_info = traceback.format_exception(type(e), e, e.__traceback__)
+            exc_message = "".join(exc_info)
+            raise ValueError(f"origin error : {e}\n learn_message : {exc_message} \n{summary_dict}")
+        
+        
+        # hvd = get_hvd(self._builder.backend)
         self._learn_step += self._sync_interval
-        if hvd.rank() == 0:
+        # if hvd.rank() == 0:
+        if True:
             summary.sum(f"{self._model_name}_learn_step", self._sync_interval, source="origin")
             summary.sum(f"{self._model_name}_update_step", 1, source="origin")
             if hasattr(self, "_save_params") and self._learn_step % self._save_params["interval"] == 0:

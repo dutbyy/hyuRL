@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from src.memory.buffer import Fragment
+from hyuRL.src.memory.buffer import Fragment
 
 
 def auto_move(data, device):
