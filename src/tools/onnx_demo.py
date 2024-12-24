@@ -3,12 +3,16 @@ import numpy as np
 from torch import nn
 from collections import OrderedDict
 
-from src.network import CommonEncoder, EntityEncoder, SpatialEncoder
-from src.network import CategoricalDecoder, GaussianDecoder, SingleSelectiveDecoder
-from src.network import DenseAggregator, ValueApproximator
-from src.network import ComplexNetwork
-from src.tools.common import construct
+from hyuRL.src.network import CommonEncoder, EntityEncoder, SpatialEncoder
+from hyuRL.src.network import CategoricalDecoder, GaussianDecoder, SingleSelectiveDecoder
+from hyuRL.src.network import DenseAggregator, ValueApproximator
+from hyuRL.src.network.commander import ComplexNetwork
+from hyuRL.src.tools.common import construct
 
+from hyuRL.src.feature.feature import *
+from hyuRL.src.feature.feature_set import *
+from hyuRL.src.api.net.net import *
+from hyuRL.src.network.commander import ComplexNetwork
 
 def fix_print():
     # return
@@ -37,87 +41,54 @@ def nested_from_numpy(x):
     else:
         return {k: nested_from_numpy(v) for k, v in x.items()}
 
+network_cfg = CommanderNetworkConfig(
+        encoders = [
+            CommonEncoderConfig(
+                name= "info_encoder",
+                feature_set = CommonFeatureSet(
+                    name = "feature_a",
+                    feature_dict = {
+                        "space": VectorFeature(10)
+                    }
+                )
+            ),
+            EntityEncoderConfig(
+                name = "enemy_encoder",
+                feature_set = EntityFeatureSet(
+                    name = "feature_b",
+                    max_length = 10,
+                    feature_dict = {
+                        "space": VectorFeature(16)
+                    }
+                )
+            ),
+            SpatialEncoderConfig(
+                name = "height_map_encoder",
+                feature_set = SpatialFeatureSet(
+                    name = "feature_c",
+                    shape = [16, 16],
+                    feature_dict = {
+                        "space": VectorFeature(10)
+                    }
+                )
+            ),
+        ],
+        decoders = [
+            CategoricalDecoderConfig(name="target", n=3),
+            GaussianDecoderConfig(name="move", n=1),
+            SingleSelectiveDecoderConfig(name="attack", source_encoder_name="enemy_encoder"),
+        ]
+    ) 
 
-network_cfg = {
-    "info_encoder": {
-        "class": CommonEncoder,
-        "params": {
-            "in_features": 4,
-            "hidden_layer_sizes": [128, 128],
-        },
-        "inputs": ["feature_a"],
-    },
-    "enemy_encoder": {
-        "class": EntityEncoder,
-        "params": {
-            "length": 10,
-            "in_features": 12,
-            "hidden_layer_sizes": [128, 128],
-        },
-        "inputs": ["feature_b"],
-    },
-    "height_map_encoder": {
-        "class": SpatialEncoder,
-        "params": {
-            "in_shape": [16, 16],
-            "in_features": 12,
-            "channel_num": 32,
-            "output_size": 128,
-        },
-        "inputs": ["feature_c"],
-    },
-    "aggregator": {
-        "class": DenseAggregator,
-        "params": {
-            "in_features": 128 * 3,
-            "hidden_layer_sizes": [256],
-            "output_size": 128,
-        },
-        "inputs": ["info_encoder", "enemy_encoder", "height_map_encoder"],
-    },
-    "value_app": {
-        "class": ValueApproximator,
-        "params": {
-            "in_features": 128,
-            "hidden_layer_sizes": [64],
-        },
-        "inputs": ["aggregator"],
-    },
-    "target": {
-        "class": SingleSelectiveDecoder,
-        "params": {
-            "in_features": 128,
-            "attention_size": 64,
-        },
-        "inputs": ["aggregator"],
-        "source_encoder_name": "enemy_encoder",
-    },
-    "move": {
-        "class": CategoricalDecoder,
-        "params": {
-            "n": 2,
-            "hidden_layer_sizes": [64],
-        },
-        "inputs": ["aggregator"],
-    },
-    "attack": {
-        "class": GaussianDecoder,
-        "params": {
-            "n": 1,
-            "hidden_layer_sizes": [64],
-        },
-        "inputs": ["aggregator"],
-    },
-}
 delayed_policy = {
     "class": ComplexNetwork,
     "params": {"network_config": network_cfg},
 }
 dummy_input = OrderedDict(
     {
-        "feature_a": np.ones((64, 4)).astype(np.float32),
-        "feature_b": np.ones((64, 12, 12)).astype(np.float32),
-        "feature_c": np.ones((64, 16, 16, 12)).astype(np.float32),
+        "feature_a": np.ones((64, 10)).astype(np.float32),
+        "feature_b": np.ones((64, 12, 16)).astype(np.float32),
+        "feature_c": np.ones((64, 16, 16, 10)).astype(np.float32),
     }
 )
 
@@ -224,13 +195,13 @@ def torch_view():
 
 def onnx_view():
     import netron
-    netron.start('./model.onnx')
-    
+    netron.start('./tmp/model.onnx')
+
 if __name__ == "__main__":
-    fix_print()
+    # fix_print()
     # export_onnx()
     # onnx_info()
     # onnx_check()
     # onnx_run()
-    # onnx_view()
-    torch_view()
+    onnx_view()
+    # torch_view()

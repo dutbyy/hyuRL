@@ -9,6 +9,23 @@ from hyuRL.src.flow.drill_plugin.api.flow_api import Environment, EnvironmentDes
 from drill.builder import Builder
 from drill.pipeline import ActionData
 from drill.keys import HIDDEN_STATE, CRITIC_HIDDEN_STATE, ACTION, DECODER_MASK, REWARD, DONE, DROP_OUT, ADVANTAGE
+    
+    
+def getLogger(env_id):
+    import logging
+    log_name = env_id if isinstance(env_id, str) else f"env-{env_id}"
+    logger = logging.getLogger(f"env-{env_id}")
+    logger.setLevel(20)
+    formatter = logging.Formatter('[%(asctime)s] [%(filename)s:%(lineno)d] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    try:
+        import os
+        os.system("mkdir -p /job/logs/user_log/")
+        handler = logging.FileHandler(f"/job/logs/user_log/{log_name}.log")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+    except:
+        pass
+    return logger
 
 class FlowEnvImp(Environment):
     """
@@ -33,7 +50,6 @@ class FlowEnvImp(Environment):
         
         self._builder = builder
         self._env = builder.build_env(env_id, env_extra_info)
-        # self._pipeline = builder.build_pipeline() 
         self._pipeline = builder.build_pipeline() 
         
         self.flow_env_config = {}
@@ -45,8 +61,10 @@ class FlowEnvImp(Environment):
         self._last_agent_to_reward = {}
         self._last_agent_to_done = {} 
         self._command_dict = None
-    
+        self.logger = getLogger(f"FlowEnv-{env_id}")
+        
     def reset(self) -> None:
+        self.logger.info("calling reset")
         """重置状态，开始一个新的 episode"""
         self._obs_data = self._env.reset()
         self._episode_done = False
@@ -58,6 +76,8 @@ class FlowEnvImp(Environment):
         self._command_dict = {}
         
     def observe(self) -> Dict[str, NestedNDArray]:
+        self.logger.info("calling observe")
+        
         if self._command_dict:
             self._obs_data, self._episode_done = self._env.step(self._command_dict)
             self._command_dict.clear()
@@ -65,16 +85,6 @@ class FlowEnvImp(Environment):
         if self._episode_done:
             self.reset()
             return self.observe()
-        
-        # agent2state = {
-        #     self._pipeline.get(agent_name).o2s(obs, self._episode_done)
-        #     for agent, obs in self._obs_data.items()
-        # }
-        
-        # agent2reward = {
-        #     self._pipeline.get(agent_name).reward(obs, self._episode_done)
-        #     for agent, obs in self._obs_data.items()
-        # }
 
         agent2state, agent2reward = self._pipeline.pre_process(self._obs_data, self._episode_done)
         
@@ -86,7 +96,7 @@ class FlowEnvImp(Environment):
             else:
                 agent_state_dict[REWARD] = np.array(reward, dtype=np.float32)
             agent_state_dict[DONE] = np.array(self._episode_done, dtype=np.float32)
-            
+
         observe_return = {
             agent_name: {
                 "obs": agent_state_dict,
@@ -99,6 +109,7 @@ class FlowEnvImp(Environment):
         return observe_return
     
     def step(self, agent_name, predict_output): 
+        self.logger.info(f"calling step {agent_name}")
         self.__update_hidden_state(agent_name, predict_output)
         
         action_data = ActionData(
@@ -112,6 +123,7 @@ class FlowEnvImp(Environment):
         return {DECODER_MASK: decoder_mask_dict}
     
     def enhance_fragment(self, agent_name:str, fragments: List[Any]):
+        self.logger.info(f"enhance_fragment {agent_name}")
         rewards = []
         values = []
         dones = []
@@ -132,7 +144,7 @@ class FlowEnvImp(Environment):
             advantages = []
             advantage = 0.0
             gamma: float = 0.99
-            lamb: float = 0
+            lamb: float = 0.95
             for i in reversed(range(len(rewards) - 1)):
                 reward, value, next_value = rewards[i + 1], values[i], values[i + 1]
                 non_terminate = 1 - int(dones[i + 1])
@@ -140,8 +152,22 @@ class FlowEnvImp(Environment):
                 advantage = delta + gamma * lamb * advantage * non_terminate
                 advantages.append(advantage)
             return list(reversed(advantages))
+                
+                
+        # def calculate_gae(reward_list: List[float], value_estimates: List[float], dones: List[bool], gamma: float = 0.99,lamb: float = 0.95) -> List[float]:
+        #     advantage = 0.0
+        #     advantages = []
+        #     for i in reversed(range(len(reward_list) - 1)):
+        #         reward = reward_list[i + 1]
+        #         value = value_estimates[i]
+        #         next_value = value_estimates[i + 1]
+        #         non_terminate = 1 - int(dones[i + 1])
+        #         delta = reward + gamma * next_value * non_terminate - value
+        #         advantage = delta + gamma * lamb * advantage * non_terminate
+        #         advantages.append(advantage)
+        #     return list(reversed(advantages))
 
-        advantages = self._pipeline.batch_process(agent_name, rewards, values, dones)
+        advantages = cal_gae(rewards, values, dones)
 
         fragments_len = len(fragments)
         advantages_len = len(advantages)

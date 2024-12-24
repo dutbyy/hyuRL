@@ -72,17 +72,18 @@ class ExBuilder(Builder):
 
     def build_model(self, model_name: str) -> Model:
         model_config = self._models[model_name]
-        # network_config = model_config["params"]["network"]
-        # network = construct(network_config)
         model_config_copy = deepcopy(model_config)
-        # model_config_copy["params"]["network"] = network
         model = construct(model_config_copy)
+        self._save_params[model_name] = {
+            'interval': model_config["save"].get('interval', 100),
+            'mode': model_config["save"].get('mode', 'npz'),
+            'path': '/job/model',
+        }
         return model
 
     def build_pipeline(self):
         from drill.pipeline import GlobalPipeline
         from drill.pipeline.pipeline_manager import PipelineManager
-        # pipeline_ = construct(self._pipeline)
         ap_info = {}
         for name, setup in self._agents.items():
             ap_info[name] = self._pipeline[setup['pipeline']]

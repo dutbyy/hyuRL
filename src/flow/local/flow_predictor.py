@@ -5,13 +5,12 @@ from src.tools.common import construct, timer_decorator
 
 
 class LocalTrainer:
-    def __init__(self, delayed_policy):
-        self.policy: PPOPolicy = construct(delayed_policy)
-        self.policy.train_mode()
+    def __init__(self):
+        pass
 
     @timer_decorator
     def train(self, train_data):
-        print(f"train data keys is {train_data.keys()}")
+        print(train_data.keys())
         return self.policy.learn(train_data)
 
     def update_state(self):

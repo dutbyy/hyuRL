@@ -255,9 +255,9 @@ class ComplexNetwork(nn.Module):
         for action_name, action in action_dict.items():
             decoder = self.sub_model_dict[action_name]
             distribution = decoder.distribution(logits_dict[action_name])
-            # action_mask = torch.as_tensor(decoder_mask[action_name].squeeze())
+            action_mask = torch.as_tensor(decoder_mask[action_name].squeeze())
             logp = distribution.log_prob(action).squeeze()
-            # logp = logp *  action_mask
+            logp = logp *  action_mask
             log_prob_dict[action_name] = logp
         return log_prob_dict
 

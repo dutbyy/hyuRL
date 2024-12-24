@@ -26,21 +26,19 @@ class PPOPolicy:
         self._network.eval()
 
     def predict(self, state_input):
-        a = timeit.default_timer() * 1000
         with torch.no_grad():
             outputs = self._network(state_input)
-        b = timeit.default_timer() * 1000
         return outputs
 
     def learn(self, trainning_data: Dict[str, Any]):
         inputs_dict = trainning_data["state_dict"]
         behavior_action_dict = trainning_data.get("action")
         behavior_logits_dict = trainning_data.get("logits")
-        behavior_mask_dict = trainning_data.get("action_mask")
+        behavior_mask_dict = trainning_data.get("decoder_mask")
         behavior_values = trainning_data.get("value")
         advantages = trainning_data.get("advantage")
         target_value = advantages + behavior_values
-
+    
 
         with torch.no_grad():
             old_logp_dict_running = self._network.log_probs(

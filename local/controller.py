@@ -25,7 +25,7 @@ def trans2tensor(nested_structure):
     
 class Controller:
     def __init__(self) -> None:
-        self.batch_size = 1024
+        self.batch_size = 1024 * 4
         self.__init_logger()
 
     def __init_logger(self):
@@ -59,10 +59,10 @@ class Controller:
             train_step += 1
             train_data = self.generate_data()
 
-    @timer_decorator
+    # @timer_decorator
     def train_run(self, policy_config):
         delayed_policy = {"class": PPOPolicy, "params": {"network_config": policy_config, 'device': 'cpu' }}
-        self.sampler = Sampler(delayed_policy=delayed_policy, num_processes=4)
+        self.sampler = Sampler(delayed_policy=delayed_policy, num_processes=8)
 
         delayed_policy = {"class": PPOPolicy, "params": {"network_config": policy_config, 'device': 'cpu', "trainning": True}}
         self.trainer = LocalTrainer(delayed_policy=delayed_policy)
@@ -80,7 +80,8 @@ class Controller:
             eplased_times = self.trainer.train(train_data)
             # print('每次迭代耗时', eplased_times)
             # self.sampler.set_weight(self.trainer.get_state_dict())
-            ret = self.predict_client.update_weight(self.trainer.get_state_dict())
+            weights = self.trainer.get_state_dict()
+            ret = self.predict_client.update_weight(weights)
 
             self.logger.info(f"step: {train_step} update weight over ")
 

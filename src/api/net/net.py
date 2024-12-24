@@ -20,6 +20,10 @@ class EncoderConfig(NetConfig):
     def get_name(self):
         return self.name if self.name else f"encoder_{self.feature_set.name}"
     
+    def __post_init__(self):
+        if not self.name:
+            self.name = f'encoder_{self.feature_set.name}'
+    
     @property
     def feature_size(self):
         return self.feature_set.length

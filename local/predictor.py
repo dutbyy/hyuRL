@@ -80,9 +80,13 @@ class PredictorClient:
         return common_deserialize(inference_response.data)
 
     def update_weight(self, weights):
-        def tfunc(stub, weights):
-            return stub.UpdateWeight(predictor_pb2.UpdateWeightReq(weight=pickle.dumps(weights)))
-        return tfunc(self.stub, weights)
+        # def tfunc(stub, weights):
+            # return stub.UpdateWeight(predictor_pb2.UpdateWeightReq(weight=pickle.dumps(weights)))
+        # return tfunc(self.stub, weights)
+        pickle_weight = pickle.dumps(weights)
+        req = predictor_pb2.UpdateWeightReq(weight=pickle_weight)
+        return self.stub.UpdateWeight(req)
+        
 
 def convert_to_batch_state(states):
     assert len(states) > 0
@@ -165,8 +169,17 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
 
     async def UpdateWeight(self, request, context):
         # self._model.update_weight(request.model_name, request.weights)
-        state_dict = pickle.loads(request.weight)
-        self._model._network.load_state_dict(state_dict)
+        
+        # state_dict = pickle.loads(request.weight)
+        # self._model._network.load_state_dict(state_dict)
+        
+        weights = pickle.loads(request.weight)
+        import torch
+        with torch.no_grad():
+            for target_p, p in zip(self._model._network.parameters(), weights):
+                target_p.copy_(torch.from_numpy(p))
+        
+        
         response = predictor_pb2.UpdateWeightRsp(
             weight = pickle.dumps(self._model._network.state_dict()),
             err_code=0,
@@ -248,6 +261,7 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
 async def serve(model):
     from concurrent import futures
     server = grpc.aio.server()
+    model.inference_mode()
     service = PredictorServiceServicer(model)
     predictor_pb2_grpc.add_PredictorServiceServicer_to_server(service, server)
     server.add_insecure_port('[::]:50051')

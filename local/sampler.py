@@ -83,7 +83,8 @@ class SingleSampler:
                 _1 = timeit.default_timer() * 1000
                 # print(outputs)
                 nstate, reward, done, truncted, info = env.step(
-                    outputs["action"]["action"].item()
+                    outputs["action"]["action"]
+                    # outputs["action"]["action"].item()
                 )
 
                 _2 = timeit.default_timer() * 1000
@@ -162,7 +163,7 @@ class Sampler:
             print(f"the sum of frament is {self.data_size.value}", end="\r", flush=True)
             if self.data_size.value >= batch_size:
                 break
-            time.sleep(0.1)
+            time.sleep(0.01)
         if len(self.total_rewards):
             self.logger.info(
                 f"average episode reward is {int(sum(self.total_rewards) /  len(self.total_rewards))}"

@@ -25,9 +25,9 @@ class CartpoleEnv:
         self.env = gym.make("CartPole-v1")
         self.agent_names = ["cpdemo"]
         self.logger = getLogger(env_id)
-    def reset(self): 
+    def reset(self):
         self.total_reward = 0
-        
+
         raw_obs, _ = self.env.reset()
         return {
             agent_name: ObsData(
@@ -39,10 +39,11 @@ class CartpoleEnv:
             )
             for agent_name in self.agent_names
         }
-    
+
     def step(self, command_dict):
         action = command_dict[self.agent_names[0]]
-        raw_obs, reward, truncted, done, extra_info = self.env.step(action=np.array(action['meta_action']))
+        print(action)
+        raw_obs, reward, truncted, done, extra_info = self.env.step(action=np.array(action['meta_action']).item())
         self.total_reward += 1
         if done or truncted:
             summary.average("episode_reward", self.total_reward)
@@ -67,12 +68,13 @@ class PipelineImplement:
                 "raw": obs_data.obs
             }
         }
-   
+
     @staticmethod
     def reward_handler(obs_data:ObsData, history):
         return 1
-         
+
     @staticmethod
     def action_handler(action_data:ActionData, history):
+        action_data.action_mask = {k: np.ones(1) for k in action_data.action}
         return action_data
 

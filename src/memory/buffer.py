@@ -183,7 +183,7 @@ class Memory:
                 k: np.array([v[i] for i in batch_indices])
                 for k, v in self.logits.items()
             },
-            "action_mask": {
+            "decoder_mask": {
                 k: np.array([v[i] for i in batch_indices])
                 for k, v in self.masks.items()
             },

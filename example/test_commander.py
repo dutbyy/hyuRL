@@ -44,35 +44,14 @@ if __name__ == "__main__":
     ) 
     model = ComplexNetwork(network_cfg)
 
-    from torchview import draw_graph
-    model.requires_grad_(False)
-    from collections import OrderedDict
+    state = model.state_dict()
+    # print(type(state))
+    # for k,v in state.items():
+    #     print(k, type(v))
     
-    def nested_from_numpy(x):
-        if isinstance(x, np.ndarray):
-            return torch.from_numpy(x)
-        elif isinstance(x, torch.Tensor):
-            return x
-        else:
-            return {k: nested_from_numpy(v) for k, v in x.items()}
-
-    dummy_input = OrderedDict(
-        {
-            "common": np.ones((64, 10)).astype(np.float32),
-            "enemies": np.ones((64, 10, 16)).astype(np.float32),
-            "heights": np.ones((64, 16, 16, 10)).astype(np.float32),
-        }
-    )
-    dm_i = nested_from_numpy(dummy_input)
-    model(dm_i)
-    model_graph = draw_graph(
-        model,
-        input_data={"input_dict": dm_i},
-        device="cpu",
-        save_graph=True,
-        directory='./tmp',
-        filename='torch_view',
-        expand_nested=True,
-    )
-    
+    for item in model.parameters():
+        print(type(item))
+        
+    print(len([it.detach().numpy() for it in model.parameters()]))
+    print(len(model.state_dict()))
     
