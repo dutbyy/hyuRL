@@ -12,6 +12,7 @@ from typing import Dict, Any
 class PPOPolicy:
     def __init__(self, network_config, trainning=False, device="cpu"):
         self.device = device if (device !='cpu' and torch.cuda.is_available()) else 'cpu'
+        print(f"PPOPolciy.device is {self.device}")
         self.trainning = trainning
         self._network = ComplexNetwork(network_config)
         self._network.to(self.device)
@@ -38,19 +39,15 @@ class PPOPolicy:
         behavior_values = trainning_data.get("value")
         advantages = trainning_data.get("advantage")
         target_value = advantages + behavior_values
-    
-
+            
+            
         with torch.no_grad():
             old_logp_dict_running = self._network.log_probs(
                 behavior_logits_dict, behavior_action_dict, behavior_mask_dict
             )
             old_logp = sum(old_logp_dict_running.values())
 
-        eplased_times = []
-        import time
-
         for epoch in range(10):
-            btime = time.time()
             predict_output_dict = self._network(
                 inputs_dict, behavior_action_dict, training=True
             )
@@ -80,7 +77,6 @@ class PPOPolicy:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self._network.parameters(), 40.0)
             self._optimizer.step()
-            eplased_times.append(round(time.time() * 1000 - btime * 1000, 1))
         return {
             "loss": loss.detach(),
             # "policy_loss": policy_loss,
