@@ -42,13 +42,14 @@ class CartpoleEnv:
 
     def step(self, command_dict):
         action = command_dict[self.agent_names[0]]
-        print(action)
+        # print(action)
         raw_obs, reward, truncted, done, extra_info = self.env.step(action=np.array(action['meta_action']).item())
         self.total_reward += 1
         if done or truncted:
             summary.average("episode_reward", self.total_reward)
             self.logger.info(f"Episode Over, Total reward is {self.total_reward}")
             # print(f"Episode Over, Total reward is {self.total_reward}")
+
         return {
                 agent_name: ObsData(
                     obs = raw_obs,

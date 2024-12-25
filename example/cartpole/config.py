@@ -25,6 +25,7 @@ model_config = {
         "class": PPOPolicy,  # 选用最佳实践推荐的模型，基于ppo的CommanderModel
         "params": {
             "network_config": network_cfg,  # 神经网络结构
+            "device": "cuda",  # 神经网络结构
         },
         "save": {
             "interval": 100,  # 模型存储间隔，即网络更新多少次存储一次模型
