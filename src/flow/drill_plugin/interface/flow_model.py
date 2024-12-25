@@ -37,10 +37,10 @@ def getLogger(env_id):
 def trans2tensor(nested_structure):   
     try: 
         if torch.cuda.is_available():
-            return tree.map_structure(lambda x: torch.from_numpy(x.numpy()).cuda(), nested_structure)
+            return tree.map_structure(lambda x: torch.from_numpy(x).cuda(), nested_structure)
         else:
             return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
-    except:
+    except Exception as e:
         return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
     
 # 定义一个递归函数来处理嵌套结构
@@ -72,7 +72,7 @@ class FlowModelPPOSync(flow.Model):
             self._model._network.load_state_dict(weights)
         self._model._network.requires_grad_(False)
         self._model._network.eval()
-        self.logger = getLogger(f"{model_name}-predict")
+        self.logger = getLogger(f"{self._model_name}-predict")
         self.logger.info("calling set state predict")
 
         if torch.cuda.is_available():
@@ -95,7 +95,7 @@ class FlowModelPPOSync(flow.Model):
         torch.save(self._model._network.state_dict(), model_path)
 
 
-    def load_weights(self, model_path: str, backend: str, mode='npz'):
+    def load_weights(self, model_path: str, backend: str='pytorch', mode='npz'):
         self.logger.info("calling load_weights")
         self._model._network.load_state_dict(torch.load(model_path))
 

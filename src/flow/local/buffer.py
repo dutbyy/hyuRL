@@ -64,6 +64,15 @@ class Fragment:
                 lamb = 0 时, 相当于只计算单步的TD误差.
                 lamb = 1 时, 相当于计算全部的TD误差.
         """
+        # TD误差:
+        #   单步的 reward 减去 当前状态的单步奖励期望(两个状态的价值差) 相当于当前动作的优势
+        #   gamma
+        # advantage 是 多步TD误差
+        # print(values)
+        # values = values.detach().numpy()
+        # print(values)
+        # values = torch.Tensor(values)
+        # values = torch.concat(values)
         advantage = 0.0
         advantages = []
         for i in reversed(range(len(rewards) - 1)):
@@ -150,6 +159,17 @@ class Memory:
         probabilities = torch.ones(len(self.values))  # 假设所有元素被选中的概率都相同
         batch_indices = torch.multinomial(probabilities, batch_size, replacement=False)
 
+        # return {
+        #     'states':       { k: torch.stack( [torch.as_tensor(v[i]) for i in batch_indices]) for k , v in self.states.items() },
+        #     'actions':      { k: torch.stack( [torch.as_tensor(v[i]) for i in batch_indices]) for k , v in self.actions.items() },
+        #     'logits':       { k: torch.stack( [torch.as_tensor(v[i]) for i in batch_indices]) for k , v in self.logits.items() },
+        #     'masks':        { k: torch.stack( [torch.as_tensor(v[i]) for i in batch_indices]) for k , v in self.masks.items() },
+        #     # 'log_probs':    { k: torch.stack( [torch.as_tensor(v[i]) for i in batch_indices]) for k , v in self.log_probs.items() },
+        #     'advantages':   torch.stack([torch.as_tensor(self.advantages[i])    for i in batch_indices]),
+        #     'values':       torch.stack([torch.as_tensor(self.values[i])        for i in batch_indices]),
+        # }
+        # states_np = {k: np.array([v[i] for i in batch_indices]) for k, v in self.states.items()}
+
         return {
             "state_dict": {
                 k: np.array([v[i] for i in batch_indices])
@@ -167,6 +187,10 @@ class Memory:
                 k: np.array([v[i] for i in batch_indices])
                 for k, v in self.masks.items()
             },
+            # "log_probs": {
+            #     k: torch.stack([torch.as_tensor(v[i]) for i in batch_indices])
+            #     for k, v in self.log_probs.items()
+            # },
             "advantage": np.array([self.advantages[i] for i in batch_indices]),
             "value": np.array([self.values[i] for i in batch_indices]),
         }

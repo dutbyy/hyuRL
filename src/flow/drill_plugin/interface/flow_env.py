@@ -81,14 +81,9 @@ class FlowEnvImp(Environment):
         if self._command_dict:
             self._obs_data, self._episode_done = self._env.step(self._command_dict)
             self._command_dict.clear()
-        
         if self._episode_done:
-            self.reset()
-            return self.observe()
-
+            return {}
         agent2state, agent2reward = self._pipeline.pre_process(self._obs_data, self._episode_done)
-        
-        
         for agent_name, agent_state_dict in agent2state.items():
             reward = agent2reward.get(agent_name)
             if isinstance(reward, dict):
@@ -96,7 +91,38 @@ class FlowEnvImp(Environment):
             else:
                 agent_state_dict[REWARD] = np.array(reward, dtype=np.float32)
             agent_state_dict[DONE] = np.array(self._episode_done, dtype=np.float32)
+        observe_return = {
+            agent_name: {
+                "obs": agent_state_dict,
+                "model": self._builder.get_model_name(agent_name),
+            }
+            for agent_name, agent_state_dict in agent2state.items() 
+        }
 
+        self._agent_names = list(observe_return.keys())
+        return observe_return
+    
+    def observe_back(self) -> Dict[str, NestedNDArray]:
+        self.logger.info("calling observe")
+        
+        if self._command_dict:
+            self._obs_data, self._episode_done = self._env.step(self._command_dict)
+            self._command_dict.clear()
+    
+        agent2state, agent2reward = self._pipeline.pre_process(self._obs_data, self._episode_done)
+        episode_done = self._episode_done
+        
+        if self._episode_done:
+            self.reset()
+            agent2state, _ = self._pipeline.pre_process(self._obs_data, self._episode_done)
+
+        for agent_name, agent_state_dict in agent2state.items():
+            reward = agent2reward.get(agent_name)
+            if isinstance(reward, dict):
+                agent_state_dict[REWARD] = np.array(sum(reward.values()), dtype=np.float32)
+            else:
+                agent_state_dict[REWARD] = np.array(reward, dtype=np.float32)
+            agent_state_dict[DONE] = np.array(episode_done, dtype=np.float32)
         observe_return = {
             agent_name: {
                 "obs": agent_state_dict,
@@ -123,6 +149,7 @@ class FlowEnvImp(Environment):
         return {DECODER_MASK: decoder_mask_dict}
     
     def enhance_fragment(self, agent_name:str, fragments: List[Any]):
+        
         self.logger.info(f"enhance_fragment {agent_name}")
         rewards = []
         values = []
@@ -144,7 +171,7 @@ class FlowEnvImp(Environment):
             advantages = []
             advantage = 0.0
             gamma: float = 0.99
-            lamb: float = 0.95
+            lamb: float = 0.0
             for i in reversed(range(len(rewards) - 1)):
                 reward, value, next_value = rewards[i + 1], values[i], values[i + 1]
                 non_terminate = 1 - int(dones[i + 1])
@@ -153,21 +180,10 @@ class FlowEnvImp(Environment):
                 advantages.append(advantage)
             return list(reversed(advantages))
                 
-                
-        # def calculate_gae(reward_list: List[float], value_estimates: List[float], dones: List[bool], gamma: float = 0.99,lamb: float = 0.95) -> List[float]:
-        #     advantage = 0.0
-        #     advantages = []
-        #     for i in reversed(range(len(reward_list) - 1)):
-        #         reward = reward_list[i + 1]
-        #         value = value_estimates[i]
-        #         next_value = value_estimates[i + 1]
-        #         non_terminate = 1 - int(dones[i + 1])
-        #         delta = reward + gamma * next_value * non_terminate - value
-        #         advantage = delta + gamma * lamb * advantage * non_terminate
-        #         advantages.append(advantage)
-        #     return list(reversed(advantages))
 
-        advantages = cal_gae(rewards, values, dones)
+        # advantages = cal_gae(rewards, values, dones)
+        from hyuRL.src.flow.local.buffer import Fragment
+        advantages = Fragment().gae(rewards, values, dones)
 
         fragments_len = len(fragments)
         advantages_len = len(advantages)
@@ -178,9 +194,9 @@ class FlowEnvImp(Environment):
         if fragments_len == advantages_len + 1:
             fragments.pop(-1)
 
-        for i in reversed(range(len(fragments))):
-            if drop_outs[i] == 1:
-                fragments.pop(i)
+        # for i in reversed(range(len(fragments))):
+        #     if drop_outs[i] == 1:
+        #         fragments.pop(i)
 
     def __update_hidden_state(self, agent_name, predict_output): 
         if CRITIC_HIDDEN_STATE in predict_output:
