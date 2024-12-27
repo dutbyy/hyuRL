@@ -32,7 +32,6 @@ def construct(class_dict: Dict):
 
     class_ = class_dict["class"]
     params = class_dict["params"]
-    print(class_.__name__)
     return class_(**params)
 
 
@@ -218,58 +217,3 @@ class ComplexNetwork(nn.Module):
     #         )
     #     return aggregator_output, aggregator_state
 
-
-if __name__ == "__main__":
-    from src.network.encoder.common import CommonEncoder
-    from src.network.decoder.categorical import CategoricalDecoder
-    from src.network.app_value import ValueApproximator
-    from src.network.aggregator.dense import DenseAggregator
-
-    network_cfg = {
-        "encoder_demo": {
-            "class": CommonEncoder,
-            "params": {
-                "in_features": 128,
-                "hidden_layer_sizes": [256, 128],
-                # "out_features": 64,
-            },
-            "inputs": ["feature_a"],
-        },
-        "aggregator": {
-            "class": DenseAggregator,
-            "params": {
-                "in_features": 128,
-                "hidden_layer_sizes": [256, 128],
-                "output_size": 256,
-            },
-            "inputs": ["encoder_demo"],
-        },
-        "value_app": {
-            "class": ValueApproximator,
-            "params": {
-                "in_features": 256,
-                "hidden_layer_sizes": [256, 128],
-            },
-            "inputs": ["aggregator"],
-        },
-        "action_1": {
-            "class": CategoricalDecoder,
-            "params": {
-                "n": 5,
-                "hidden_layer_sizes": [256, 128],
-            },
-            "inputs": ["aggregator"],
-        },
-        "action_2": {
-            "class": CategoricalDecoder,
-            "params": {
-                "n": 3,
-                "hidden_layer_sizes": [256, 128],
-            },
-            "inputs": ["action_1"],
-        },
-    }
-
-    network = ComplexNetwork(network_cfg)
-    output = network({"feature_a": torch.rand(128, 128)})
-    print(output["action"].values())

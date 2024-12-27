@@ -8,10 +8,6 @@ from typing import List, Tuple
 from .decoder import Decoder
 from ..layer.attention import attention_score_model
 
-# from src.network.decoder.decoder import Decoder
-# from src.network.layer.attention import attention_score_model
-
-
 import torch
 import torch.nn as nn
 

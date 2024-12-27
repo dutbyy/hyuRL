@@ -16,7 +16,6 @@ def construct(class_dict: Dict):
 
     class_ = class_dict["class"]
     params = class_dict["params"]
-    # print(class_, params)
     return class_(**params)
 
 

@@ -6,12 +6,12 @@ from torch import optim
 import gym
 import tree
 
-from src.network.complex import ComplexNetwork
-from src.loss.ppo import PPOLoss
-from src.tools.gae import calculate_gae
-from src.memory.buffer import Fragment, Memory
-from src.tools.gpu import auto_move
-from src.tools.common import timer_decorator
+from hyuRL.src.network.complex import ComplexNetwork
+from hyuRL.src.loss.ppo import PPOLoss
+from hyuRL.src.tools.gae import calculate_gae
+from hyuRL.src.memory.buffer import Fragment, Memory
+from hyuRL.src.tools.gpu import auto_move
+from hyuRL.src.tools.common import timer_decorator
 
 
 class PPOPolicy:

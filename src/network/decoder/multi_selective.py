@@ -11,8 +11,8 @@ from torch.distributions import Categorical
 # from .decoder import Decoder
 # from ..layer.attention import attention_score_model
 
-from src.network.decoder.decoder import Decoder
-from src.network.layer.attention import attention_score_model
+from hyuRL.src.network.decoder.decoder import Decoder
+from hyuRL.src.network.layer.attention import attention_score_model
 
 
 import torch
