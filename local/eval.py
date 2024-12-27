@@ -4,8 +4,8 @@ import torch
 from local.sampler import Sampler
 from local.trainer import LocalTrainer
 from local.predictor import serve
-from src.algo.PPOPolicy import PPOPolicy
-from src.memory.buffer import Memory
+from hyuRL.src.algo.PPOPolicy import PPOPolicy
+from hyuRL.src.memory.buffer import Memory
 from local.predictor import PredictorClient
 import time
 
@@ -73,7 +73,7 @@ class Controller:
 if __name__ == '__main__':
     import multiprocessing
     multiprocessing.set_start_method('spawn')
-    from src.network import *
+    from hyuRL.src.network import *
     network_cfg = {
         "encoder_demo" : {
             "class": CommonEncoder,

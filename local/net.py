@@ -42,7 +42,7 @@ network_cfg = {
 
 
 def get_model():
-    from src.network import ComplexNetwork
+    from hyuRL.src.network import ComplexNetwork
     model = ComplexNetwork(network_cfg)
     # model.to('cuda')
     return model
@@ -53,11 +53,11 @@ network_cfg = CommanderNetworkConfig(
     encoders=[
         CommonEncoderConfig(
             feature_set=CommonFeatureSet(
-                name="feature_a", feature_dict={"common": VectorFeature(4)}
+                name="common", feature_dict={"common": VectorFeature(4)}
             )
         ),
     ],
     decoders=[
-        CategoricalDecoderConfig(name="action", n=2),
+        CategoricalDecoderConfig(name="meta_action", n=2),
     ],
 )

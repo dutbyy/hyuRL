@@ -9,7 +9,7 @@ import numpy as np
 from typing import Dict, Union
 from proto import predictor_pb2
 from proto import predictor_pb2_grpc
-from src.tools.gpu import auto_move
+from hyuRL.src.tools.gpu import auto_move
 
 def common_serialize(data: Dict[str, np.ndarray]) -> bytes:
     np_list = predictor_pb2.NumpyList()
@@ -64,27 +64,25 @@ class PredictorClient:
             self.channel = grpc.insecure_channel(f'{host}:{port}')
         self.stub = predictor_pb2_grpc.PredictorServiceStub(self.channel)
 
-    async def predict(self, inputs):
-        request = predictor_pb2.InferenceReq(data=common_serialize(inputs))
+    async def predict(self, state_dict):
+        request = predictor_pb2.InferenceReq(model_name=state_dict['model'], data=common_serialize(state_dict['obs']))
         inference_response = await self.stub.Inference(request)
+        
         return common_deserialize(inference_response.data), inference_response.err_code
 
-    async def log_probs(self, data, action, mask):
-        inputs = {
-            'logits': data,
-            'action': action,
-            'mask': mask
-        }
-        request = predictor_pb2.InferenceReq(data=common_serialize(inputs))
-        inference_response = await self.stub.LogProbs(request)
-        return common_deserialize(inference_response.data)
+    # async def log_probs(self, model_name, data, action, mask):
+    #     inputs = {
+    #         'logits': data,
+    #         'action': action,
+    #         'mask': mask
+    #     }
+    #     request = predictor_pb2.InferenceReq(model_name=model_name, data=common_serialize(inputs))
+    #     inference_response = await self.stub.LogProbs(request)
+    #     return common_deserialize(inference_response.data)
 
-    def update_weight(self, weights):
-        # def tfunc(stub, weights):
-            # return stub.UpdateWeight(predictor_pb2.UpdateWeightReq(weight=pickle.dumps(weights)))
-        # return tfunc(self.stub, weights)
+    def update_weight(self, model_name, weights):
         pickle_weight = pickle.dumps(weights)
-        req = predictor_pb2.UpdateWeightReq(weight=pickle_weight)
+        req = predictor_pb2.UpdateWeightReq(model_name=model_name, weight=pickle_weight)
         return self.stub.UpdateWeight(req)
         
 
@@ -153,26 +151,8 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
         rsp.data.CopyFrom(rsp_data)
         return rsp
 
-    # def Inference1(self, request, context):
-    #     self.times += 1
-    #     t = self.times
-    #     data = self._model(auto_move(common_deserialize(request.data), 'cuda'))
-    #     rsp = predictor_pb2.InferenceRsp(data=common_serialize(data), err_msg=f'success: {t}')
-    #     return rsp
-
-    # async def LogProbs(self, request, context):
-    #     t = self.times
-    #     inputs = common_deserialize(request.data)
-    #     data = self._model._network.log_probs(*inputs.values())
-    #     rsp = predictor_pb2.InferenceRsp(data=common_serialize(data), err_msg=f'success: {t}')
-    #     return rsp
-
     async def UpdateWeight(self, request, context):
-        # self._model.update_weight(request.model_name, request.weights)
-        
-        # state_dict = pickle.loads(request.weight)
-        # self._model._network.load_state_dict(state_dict)
-        
+        model_name = request.model_name        
         weights = pickle.loads(request.weight)
         import torch
         with torch.no_grad():

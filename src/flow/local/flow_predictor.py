@@ -1,4 +1,5 @@
 import pickle
+import dill
 import grpc
 import time
 import asyncio
@@ -221,7 +222,13 @@ def main(flow_config, model_name, builder):
     for model_name in predict_model_names:
         flow_model = flow_config['algorithm']['flow_model'](model_name, builder)
         name2model[model_name] = flow_model
-    print("prepate to server")
+        ret = flow_model.__getstate__()
+        tmp = pickle.dumps(ret)
+        print("try pickle it")
+        tmp = dill.dumps(ret)
+        print("try dill it")
+        
+    print("prepare to server")
     asyncio.run(serve(name2model))
 
 if __name__ == '__main__':

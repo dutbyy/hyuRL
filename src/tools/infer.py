@@ -45,27 +45,12 @@ def init_model(builder, model_path_dict={}):
         model_name: FlowModelPPO(model_name, builder)
         for model_name in builder.model_names
     }
-
+    print(f"model_path_dict is {model_path_dict}")
     for model_name, model_path in model_path_dict.items():
         flow_model = model_dict.get(model_name, None)
         if flow_model:
-            # try:
-            #     flow_model.load_weights(model_path, "tensorflow", "npz")
-            #     print(f"Loading Model {model_name} : {model_path}")
-            # except Exception as e:
-            #     print(f"loading Model {model_name}: {model_path} failed : {e}")
-            flow_model._model._network.load_state_dict(torch.load(model_path))
-            # if True:
-            #     def make_fake_inputs(flow_model: FlowModelPPO):
-            #         network = flow_model._model._network
-            #         encoders = network._encoder_config
-            #         fake_inputs = {
-            #             feature_set.name: np.random.normal(size=(1, *feature_set.shape)).astype(np.float32)
-            #             for feature_set in [encoder.get("inputs") for encoder in encoders.values()]
-            #         }
-            #         fake_inputs.update({"reward": np.ones(1, dtype=np.float32), "done": np.zeros(1, dtype=np.float32),})
-            #         return fake_inputs
-            #     flow_model.predict(make_fake_inputs(flow_model))
+            flow_model.load_weights(model_path)
+            print(f"loding model :{model_path}")
 
     name2model = {
         agent_name: model_dict.get(builder.get_model_name(agent_name))

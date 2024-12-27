@@ -51,6 +51,8 @@ class LocalMaster:
             print(f"train step :{self.train_step}")
             weights = self.learner.get_weights()
             self.predictor.update_weight("cp_model", weights)
+            if self.train_step % 50 == 0:
+                self.learner.flow_model.save_weights()
 
 
 def main():

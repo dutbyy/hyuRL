@@ -52,7 +52,7 @@ class SingleActor:
                 while self.sampling_flag.value == 0:
                     await asyncio.sleep(1)
                 episode_done = False if state_dict else True
-                if not state_dict:
+                if episode_done:
                     state_dict = {"cpdemo": {"obs": {"reward": 0.0, "done": 1.0}}}
                     action_dict = {"cpdemo": {"value": 0.0}}
                     decoder_mask_dict = {"cpdemo": None}
@@ -71,11 +71,12 @@ class SingleActor:
                     piece = [state_dict, action_dict, decoder_mask_dict]
                     
 
+                    for agent_name in state_dict.keys():
+                        agent_piece = [piece[0][agent_name]['obs'], piece[1][agent_name], piece[2][agent_name]]
+                        fragments[agent_name].append(agent_piece)
+                             
                 total_reward += state_dict['cpdemo']["obs"]['reward']
-                for agent_name in state_dict.keys():
-                    agent_piece = [piece[0][agent_name]['obs'], piece[1][agent_name], piece[2][agent_name]]
-                    fragments[agent_name].append(agent_piece)
-                    
+       
                 for agent_name in state_dict.keys():
                     agent_fragments = fragments[agent_name]
                     if len(agent_fragments) >= self.fragment_size or episode_done:

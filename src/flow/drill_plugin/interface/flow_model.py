@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List
 
+from drill.flow import flow
+
 import logging
 import numpy as np
 import tree
@@ -14,8 +16,8 @@ from drill.model import Model
 from drill.utils import get_hvd
 
 from drill.builder import Builder
-    
-    
+
+
 def getLogger(env_id):
     log_name = env_id if isinstance(env_id, str) else f"env-{env_id}"
     logger = logging.getLogger(f"env-{env_id}")
@@ -32,47 +34,67 @@ def getLogger(env_id):
     return logger
 
 # 定义一个递归函数来处理嵌套结构
-def trans2tensor(nested_structure):   
-    try: 
+def trans2tensor(nested_structure):
+    try:
+        if torch.cuda.is_available():
+            return tree.map_structure(lambda x: torch.from_numpy(x.numpy()).cuda(), nested_structure)
+        else:
+            return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
+    except Exception as e:
         if torch.cuda.is_available():
             return tree.map_structure(lambda x: torch.from_numpy(x).cuda(), nested_structure)
         else:
             return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
-    except Exception as e:
-        return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
-    
+
 # 定义一个递归函数来处理嵌套结构
-def trans2numpy(nested_structure):   
+def trans2numpy(nested_structure):
     return tree.map_structure(lambda x: x.cpu().numpy(), nested_structure)
-    
-class FlowModelPPOSync:
+
+class FlowModelPPOSync(flow.Model):
 
     def __init__(self, model_name: str, builder: Builder):
         self._init(model_name, builder)
-        self.logger = getLogger(f"{model_name}-PPO")
+        self.logger = getLogger(f"{model_name}-MASTER-PPO")
 
     def __getstate__(self):
+        self.logger.info("calling __getstate__")
         return self._model_name, self._builder, self._model._network.state_dict()
 
     def setstate_learn(self, state):
-        model_name, builder, weights = state
-        self._init(model_name, builder)
-        self._model._network.load_state_dict(weights)
+        if not hasattr(self, "logger"):
+            self.logger = getLogger("{Learner}-PPO")
+        try:
+            model_name, builder, weights = state
+            self.logger.info(f"model_name : {model_name}")
+            self.logger.info(f"builder : {builder}")
+            weight_shape = {k: v.shape for k, v in weights.items()}
+            self.logger.info(f"weights : {weight_shape}")
+            self._init(model_name, builder)
+            self._model._network.load_state_dict(weights)
+        except Exception as e:
+            self.logger.info(f"setstate learn error: {e}")
         self._model._network.train()
         self.logger = getLogger(f"{model_name}-learn")
-        self.logger.info("calling set state learn")
         if torch.cuda.is_available():
             self._model._network.cuda()
 
     def setstate_predict(self, state=None):
-        if state:
+        if not hasattr(self, "logger"):
+            self.logger = getLogger("{Predictor}-PPO")
+        self.logger.info("calling set state predict")
+        try:
             model_name, builder, weights = state
+            self.logger.info(f"model_name : {model_name}")
+            self.logger.info(f"builder : {builder}")
+            weight_shape = {k: v.shape for k, v in weights.items()}
+            self.logger.info(f"weights : {weight_shape}")
             self._init(model_name, builder)
             self._model._network.load_state_dict(weights)
+        except Exception as e:
+            self.logger.info(f"setstate predict error: {e}")
         self._model._network.requires_grad_(False)
         self._model._network.eval()
         self.logger = getLogger(f"{self._model_name}-predict")
-        self.logger.info("calling set state predict")
 
         if torch.cuda.is_available():
             self._model._network.cuda()
@@ -131,10 +153,10 @@ class FlowModelPPOSync:
         state_dict, behavior_info_dict, mask_dict, advantage = piece
         behavior_info_dict.update(advantage)
         behavior_info_dict[DECODER_MASK] = mask_dict[DECODER_MASK]
-        
+
         training_data = {"state_dict": state_dict}
         training_data.update(behavior_info_dict)
- 
+
         training_data = trans2tensor(training_data)
         summary_dict = self._model.learn(training_data)
         summary_dict= trans2numpy(summary_dict)

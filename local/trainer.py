@@ -1,7 +1,7 @@
 from hyuRL.src.algo.PPOPolicy import PPOPolicy
 import gym
-from src.memory.buffer import Memory
-from src.tools.common import construct, timer_decorator
+from hyuRL.src.memory.buffer import Memory
+from hyuRL.src.tools.common import construct, timer_decorator
 
 
 class LocalTrainer:
@@ -11,7 +11,6 @@ class LocalTrainer:
 
     @timer_decorator
     def train(self, train_data):
-        print(f"train data keys is {train_data.keys()}")
         return self.policy.learn(train_data)
 
     def update_state(self):

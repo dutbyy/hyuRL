@@ -26,7 +26,7 @@ class CartpoleEnv:
         self.agent_names = ["cpdemo"]
         self.logger = getLogger(env_id)
         self.hist_rewards = []
-    
+
     def reset(self):
         self.total_reward = 0
 
@@ -50,14 +50,13 @@ class CartpoleEnv:
         if done or truncted:
             summary.average("episode_reward", self.total_reward)
             self.hist_rewards.append(self.total_reward)
-            if len(self.hist_rewards) > 10:
+            if len(self.hist_rewards) >= 10:
                 mean = lambda x : sum(x)/len(x)
-                import os 
-                import threading 
-                self.logger.info(f"{id(self)} Episode Over, Total reward is {mean(self.hist_rewards):.2f}")
+                import os
+                import threading
+                self.logger.info(f"10 episode Over, Total reward is {mean(self.hist_rewards):.2f}")
+                # print(f"10 episode Over, Total reward is {mean(self.hist_rewards):.2f}")
                 self.hist_rewards.clear()
-            # self.logger.info(f"Episode Over, Total reward is {self.total_reward}")
-            # print(f"Episode Over, Total reward is {self.total_reward}")
 
         return {
                 agent_name: ObsData(

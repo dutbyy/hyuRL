@@ -47,11 +47,11 @@ class FlowEnvImp(Environment):
         }
         env_extra_info.update(env_desc.environment_creator_user_args["extra_info"])
         # self._episode_mode_bool = env_desc.environment_creator_user_args["episode_mode"]
-        
+
         self._builder = builder
         self._env = builder.build_env(env_id, env_extra_info)
-        self._pipeline = builder.build_pipeline() 
-        
+        self._pipeline = builder.build_pipeline()
+
         self.flow_env_config = {}
         self._episode_done = None
         self._obs_data: Dict[str, Any] = None
@@ -59,10 +59,10 @@ class FlowEnvImp(Environment):
         self._last_hidden_state_dict = defaultdict(dict)
         self._agent_names = []
         self._last_agent_to_reward = {}
-        self._last_agent_to_done = {} 
+        self._last_agent_to_done = {}
         self._command_dict = None
         self.logger = getLogger(f"FlowEnv-{env_id}")
-        
+
     def reset(self) -> None:
         self.logger.info("calling reset")
         """重置状态，开始一个新的 episode"""
@@ -73,17 +73,20 @@ class FlowEnvImp(Environment):
         self._last_hidden_state_dict = defaultdict(dict)
         self._agent_names = []
         self._last_agent_to_reward = {}
-        self._last_agent_to_done = {} 
+        self._last_agent_to_done = {}
         self._command_dict = {}
-        
+
     def observe(self) -> Dict[str, NestedNDArray]:
         self.logger.info("calling observe")
-        
+
+        # 如果上次的_obs_data 是空的
+        if self._episode_done:
+            return {}
+
         if self._command_dict:
             self._obs_data, self._episode_done = self._env.step(self._command_dict)
             self._command_dict.clear()
-        if self._episode_done:
-            return {}
+
         agent2state, agent2reward = self._pipeline.pre_process(self._obs_data, self._episode_done)
         for agent_name, agent_state_dict in agent2state.items():
             reward = agent2reward.get(agent_name)
@@ -97,17 +100,17 @@ class FlowEnvImp(Environment):
                 "obs": agent_state_dict,
                 "model": self._builder.get_model_name(agent_name),
             }
-            for agent_name, agent_state_dict in agent2state.items() 
+            for agent_name, agent_state_dict in agent2state.items()
         }
 
         self._agent_names = list(observe_return.keys())
         return observe_return
 
-    
+
     def step(self, agent_name, predict_output): 
         self.logger.info(f"calling step {agent_name}")
         self.__update_hidden_state(agent_name, predict_output)
-        
+
         action_data = ActionData(
             action=copy.deepcopy(predict_output[ACTION]),
             predict_output=copy.deepcopy(predict_output),
@@ -115,9 +118,9 @@ class FlowEnvImp(Environment):
         agent_command_dict, action_mask, decoder_mask_dict = self._pipeline.post_process(agent_name, action_data)
         self._command_dict.update(agent_command_dict)
         return {DECODER_MASK: decoder_mask_dict}
-    
+
     def enhance_fragment(self, agent_name:str, fragments: List[Any]):
-        
+
         self.logger.info(f"enhance_fragment {agent_name}")
         rewards = []
         values = []
@@ -147,7 +150,7 @@ class FlowEnvImp(Environment):
                 advantage = delta + gamma * lamb * advantage * non_terminate
                 advantages.append(advantage)
             return list(reversed(advantages))
-                
+
 
         advantages = cal_gae(rewards, values, dones)
 
@@ -164,7 +167,7 @@ class FlowEnvImp(Environment):
             if drop_outs[i] == 1:
                 fragments.pop(i)
 
-    def __update_hidden_state(self, agent_name, predict_output): 
+    def __update_hidden_state(self, agent_name, predict_output):
         if CRITIC_HIDDEN_STATE in predict_output:
             self._last_hidden_state_dict[agent_name][HIDDEN_STATE] = copy.deepcopy(predict_output[HIDDEN_STATE])
         if CRITIC_HIDDEN_STATE in predict_output:
