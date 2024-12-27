@@ -1,21 +1,14 @@
 import asyncio
-import gym
-import torch
-import numpy as np
 import multiprocessing
 import time
-import os
 import pickle
 import logging
-from copy import deepcopy
-from hyuRL.local.predictor import PredictorClient
+from typing import Dict, Any, Tuple, Union
+
 from hyuRL.src.tools.common import construct
 from hyuRL.src.memory.buffer import Fragment
-from hyuRL.src.tools.common import timer_decorator
-
-from typing import Dict, Any, Tuple, Union
 from hyuRL.src.flow.drill_plugin.api.flow_api import EnvironmentDescriptor
-
+from hyuRL.src.flow.local.flow_predictor import PredictorClient
 
 
 def sample_target(sample_config):
@@ -99,7 +92,6 @@ class Actor:
         self.sampling_flag = multiprocessing.Value("i", 0)
         self.logger = logging.getLogger("Actor")
 
-    @timer_decorator
     def get_batch(self, batch_size=512):
         self.datas[:] = []
         self.data_size.value = 0

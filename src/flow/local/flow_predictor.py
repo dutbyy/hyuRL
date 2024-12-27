@@ -106,35 +106,21 @@ class PredictorClient:
             self.channel = grpc.insecure_channel(f'{host}:{port}')
         self.stub = predictor_pb2_grpc.PredictorServiceStub(self.channel)
 
-    async def predict(self, inputs):
-        request = predictor_pb2.InferenceReq(data=common_serialize(inputs))
+    async def predict(self, state_dict):
+        request = predictor_pb2.InferenceReq(model_name=state_dict['model'], data=common_serialize(state_dict['obs']))
         inference_response = await self.stub.Inference(request)
         return common_deserialize(inference_response.data), inference_response.err_code
 
-    async def log_probs(self, data, action, mask):
-        inputs = {
-            'logits': data,
-            'action': action,
-            'mask': mask
-        }
-        request = predictor_pb2.InferenceReq(data=common_serialize(inputs))
-        inference_response = await self.stub.LogProbs(request)
-        return common_deserialize(inference_response.data)
-
-    def update_weight(self, weights):
-        # def tfunc(stub, weights):
-            # return stub.UpdateWeight(predictor_pb2.UpdateWeightReq(weight=pickle.dumps(weights)))
-        # return tfunc(self.stub, weights)
-        # print("client calling update weight")
+    def update_weight(self, model_name, weights):
         pickle_weight = pickle.dumps(weights)
-        req = predictor_pb2.UpdateWeightReq(weight=pickle_weight)
+        req = predictor_pb2.UpdateWeightReq(model_name=model_name, weight=pickle_weight)
         return self.stub.UpdateWeight(req)
 
 
 class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
-    def __init__(self, flow_model, *args, **kwargs):
-        self._data_queue = asyncio.Queue()
-        self._flow_model = flow_model
+    def __init__(self, name2model, *args, **kwargs):
+        self._data_queue = {name: asyncio.Queue() for name in name2model}
+        self._name2model = name2model
         self.batch_size = 8
         self.start_time = None
         self.timeout = 10
@@ -145,88 +131,98 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
         self.times += 1
         a = timeit.default_timer()
         future = asyncio.Future()
-        await self._data_queue.put([common_deserialize(request.data), future])
+        await self._data_queue[request.model_name].put([common_deserialize(request.data), future])
         data = await future
         b = timeit.default_timer()
         rsp_data = common_serialize(data)
-        rsp = predictor_pb2.InferenceRsp(err_code=int((b-a)*1000), err_msg=f'latency : {(b-a)* 1000}')
+        rsp = predictor_pb2.InferenceRsp(err_code=0, err_msg=f'latency : {(b-a)* 1000}')
         rsp.data.CopyFrom(rsp_data)
         return rsp
 
 
     async def UpdateWeight(self, request, context):
-        print(" beging called Updated weights finished")
+        model_name = request.model_name
+        print(f"Updating weights for model: [{model_name}]")
         weights = pickle.loads(request.weight)
-        import torch
-        self._flow_model.set_weights(weights)
-        # with torch.no_grad():
-        #     for target_p, p in zip(self._flow_model._model._network.parameters(), weights):
-        #         target_p.copy_(torch.from_numpy(p))
+        flow_model = self._name2model.get(model_name)
+        
+        with torch.no_grad():
+            for target_p, p in zip(flow_model._model._network.parameters(), weights):
+                target_p.copy_(torch.from_numpy(p))
         response = predictor_pb2.UpdateWeightRsp(
-            weight = pickle.dumps(self._flow_model.get_weights()),
+            weight = b"",
             err_code=0,
-            err_msg="Weights updated"
+            err_msg=f"Updated {model_name}'s weight."
         )
         print("Updated weights finished")
         return response
 
 
-    async def start_batch_inference(self):
+    async def start_batch_inference(self, model_name):
         requests = []
+        start_time = None
         while True:
-            try :
-                while len(requests) < self.batch_size:
-                    if len(requests) == 0 or not self.start_time:
-                        self.start_time = time.time()
-                    diff = time.time() - self.start_time
-                    if diff * 1000 < self.timeout:
-                        try:
-                            tmp_timeout = 0.9 * (self.timeout/1000 - diff) if len(requests) else 10
-                            request = await asyncio.wait_for(self._data_queue.get(), timeout=tmp_timeout)
-                            requests.append(request)
-                            if len(requests) == 1:
-                                self.start_time = time.time()
-                        except Exception as e:
-                            pass
-                    elif len(requests) > 0:
-                        break
-                
-                def batch_inference(requests):
-                    inputs = convert_to_batch_state([it[0] for it in requests])
-                    results = self._flow_model.predict(inputs)
-                    results = split_outputs(results)
-                    for idx, (_, future) in enumerate(requests):
-                        result = results[idx]
-                        if not future.cancelled() and not future.done():
-                            future.set_result(result)
-                batch_inference(requests)
-                self.start_time = time.time()
-                requests = []
-            except Exception as e :
-                print(e)
-                raise e
+            while len(requests) < self.batch_size:
+                if len(requests) == 0 or not start_time:
+                    start_time = time.time()
+                diff = time.time() - start_time
+                if diff * 1000 < self.timeout:
+                    try:
+                        tmp_timeout = 0.9 * (self.timeout/1000 - diff) if len(requests) else 10
+                        request = await asyncio.wait_for(self._data_queue[model_name].get(), timeout=tmp_timeout)
+                        requests.append(request)
+                        if len(requests) == 1:
+                            start_time = time.time()
+                    except Exception as e:
+                        pass
+                elif len(requests) > 0:
+                    break
+                  
+            def batch_inference(requests):
+                inputs = convert_to_batch_state([it[0] for it in requests])
+                results = self._name2model[model_name].predict(inputs)
+                results = split_outputs(results)
+                for idx, (_, future) in enumerate(requests):
+                    result = results[idx]
+                    if not future.cancelled() and not future.done():
+                        future.set_result(result)
+                        
+            batch_inference(requests)
+            start_time = time.time()
+            requests = []
 
 
-async def serve(model):
+async def serve(name2model):
     from concurrent import futures
     server = grpc.aio.server()
-    model.setstate_predict()
-    service = PredictorServiceServicer(model)
+    for name, model in name2model.items():
+        model.setstate_predict()
+    service = PredictorServiceServicer(name2model)
     predictor_pb2_grpc.add_PredictorServiceServicer_to_server(service, server)
     server.add_insecure_port('[::]:50051')
     await server.start()
-    batch_inference = asyncio.create_task(service.start_batch_inference())
-    def callback(future):
-        print("batch inference exception!!!")
-        exit(-1)
-    batch_inference.add_done_callback(callback)
+    for model_name in  name2model.keys():
+        batch_inference = asyncio.create_task(service.start_batch_inference(model_name))
+        def callback(future):
+            print("batch inference exception!!!")
+            exit(-1)
+        batch_inference.add_done_callback(callback)
     await server.wait_for_termination()
 
 
 def main(flow_config, model_name, builder):
-    flow_model = flow_config['algorithm']['flow_model'](model_name, builder)
+    predict_model_names = []
+    for actor_name, actor_config in flow_config['actor_config'].items():
+        for model_learn_config in actor_config['training_models']:
+            predict_model_names.append(model_learn_config['model_name'])
+        if actor_config['inference_models']:
+            predict_model_names.extend(actor_config['inference_models'])
+    name2model = {}
+    for model_name in predict_model_names:
+        flow_model = flow_config['algorithm']['flow_model'](model_name, builder)
+        name2model[model_name] = flow_model
     print("prepate to server")
-    asyncio.run(serve(flow_model))
+    asyncio.run(serve(name2model))
 
 if __name__ == '__main__':
     from hyuRL.example.cartpole.entry import flow_config, builder
