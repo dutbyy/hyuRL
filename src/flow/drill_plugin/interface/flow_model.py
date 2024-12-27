@@ -4,13 +4,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List
 
 import logging
-import traceback
 import numpy as np
 import tree
 import torch
 
 from drill import summary
-from drill.flow import flow
 from drill.keys import ACTION_MASK, DECODER_MASK
 from drill.model import Model
 from drill.utils import get_hvd
@@ -47,7 +45,7 @@ def trans2tensor(nested_structure):
 def trans2numpy(nested_structure):   
     return tree.map_structure(lambda x: x.cpu().numpy(), nested_structure)
     
-class FlowModelPPOSync(flow.Model):
+class FlowModelPPOSync:
 
     def __init__(self, model_name: str, builder: Builder):
         self._init(model_name, builder)
@@ -60,6 +58,7 @@ class FlowModelPPOSync(flow.Model):
         model_name, builder, weights = state
         self._init(model_name, builder)
         self._model._network.load_state_dict(weights)
+        self._model._network.train()
         self.logger = getLogger(f"{model_name}-learn")
         self.logger.info("calling set state learn")
         if torch.cuda.is_available():
@@ -129,19 +128,12 @@ class FlowModelPPOSync(flow.Model):
     def learn(self, piece: List[Dict[str, Any]]) -> bool:
         if not self.logger:
             self.__init_logger()
-        self.logger.info('begin to calc model learn')
         state_dict, behavior_info_dict, mask_dict, advantage = piece
         behavior_info_dict.update(advantage)
         behavior_info_dict[DECODER_MASK] = mask_dict[DECODER_MASK]
         
         training_data = {"state_dict": state_dict}
         training_data.update(behavior_info_dict)
-        self.logger.info(f"learning: {training_data.keys()}")
-        for k, v in training_data.items():
-            self.logger.info(f"{k} is : ")
-            if type(v) == dict:
-                for u,t in v.items():
-                    self.logger.info(f"----> {u}")
  
         training_data = trans2tensor(training_data)
         summary_dict = self._model.learn(training_data)

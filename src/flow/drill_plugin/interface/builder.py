@@ -6,7 +6,6 @@ import numpy as np
 from hyuRL.src.flow.drill_plugin.api.flow_api import Builder, Model
 
 def construct(class_dict: Dict):
-    print(class_dict)
     """根据 config dict, 从对应的 network component class 中实例化一个对应的网络组件
     """
     is_class_dict = lambda class_dict : ("class" in class_dict) and ("params" in class_dict)
@@ -95,36 +94,5 @@ class ExBuilder(Builder):
         return pipeline_
         
     def get_initial_state(self, agent_name):
-        # from drill.model.tf.network.aggregator import DenseAggregator, GRUAggregator, LSTMAggregator
-        # from drill.model.tf.network.commander import CommanderNetwork
-        # model_name = self.get_model_name(agent_name)
-        # model_config = self._models[model_name]
-        # network_config = model_config["params"]["network"]
-        # if issubclass(network_config["class"], CommanderNetwork):
-        #     aggregator_config = network_config["params"]["aggregator_config"]
-        #     aggregator_class = aggregator_config["class"]
-        #     if aggregator_class == GRUAggregator:
-        #         hidden_state = np.zeros(aggregator_config["params"]["state_size"], dtype=np.float32)
-        #     elif aggregator_class == LSTMAggregator:
-        #         hidden_state = np.zeros(2 * aggregator_config["params"]["state_size"],
-        #                                 dtype=np.float32)
-        #     elif aggregator_class == DenseAggregator:
-        #         hidden_state = None
-        #     else:
-        #         raise NotImplementedError(
-        #             f"Found that you used a custom aggregator class {aggregator_class}, "
-        #             "you need inherit `BPBuilder` class and then overload the `get_initial_state` method. "
-        #             "One thing to note is that the initial state returned should not contain the batch size dimension."
-        #         )
-        # else:
-        #     raise NotImplementedError(
-        #         f"Found that you did not use `CommanderNetwork`, "
-        #         "you need inherit `BPBuilder` class and then overload the `get_initial_state` method. "
-        #         "One thing to note is that the initial state returned should not contain the batch size dimension."
-        #     )
         hidden_state_dict = {}
-        # if hidden_state is not None:
-        #     hidden_state_dict[HIDDEN_STATE] = hidden_state
-        #     if not network_config["params"].get("share_critic", True):
-        #         hidden_state_dict[CRITIC_HIDDEN_STATE] = hidden_state
         return hidden_state_dict
