@@ -25,6 +25,8 @@ class CartpoleEnv:
         self.env = gym.make("CartPole-v1")
         self.agent_names = ["cpdemo"]
         self.logger = getLogger(env_id)
+        self.hist_rewards = []
+    
     def reset(self):
         self.total_reward = 0
 
@@ -47,7 +49,14 @@ class CartpoleEnv:
         self.total_reward += 1
         if done or truncted:
             summary.average("episode_reward", self.total_reward)
-            self.logger.info(f"Episode Over, Total reward is {self.total_reward}")
+            self.hist_rewards.append(self.total_reward)
+            if len(self.hist_rewards) > 10:
+                mean = lambda x : sum(x)/len(x)
+                import os 
+                import threading 
+                self.logger.info(f"{id(self)} Episode Over, Total reward is {mean(self.hist_rewards):.2f}")
+                self.hist_rewards.clear()
+            # self.logger.info(f"Episode Over, Total reward is {self.total_reward}")
             # print(f"Episode Over, Total reward is {self.total_reward}")
 
         return {
@@ -72,7 +81,7 @@ class PipelineImplement:
 
     @staticmethod
     def reward_handler(obs_data:ObsData, history):
-        return 1
+        return obs_data.extra_info_dict.get("reward", 1.0)
 
     @staticmethod
     def action_handler(action_data:ActionData, history):
