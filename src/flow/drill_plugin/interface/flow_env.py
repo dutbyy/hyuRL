@@ -9,8 +9,8 @@ from hyuRL.src.flow.drill_plugin.api.flow_api import Environment, EnvironmentDes
 from drill.builder import Builder
 from drill.pipeline import ActionData
 from drill.keys import HIDDEN_STATE, CRITIC_HIDDEN_STATE, ACTION, DECODER_MASK, REWARD, DONE, DROP_OUT, ADVANTAGE
-    
-    
+
+
 def getLogger(env_id):
     import logging
     log_name = env_id if isinstance(env_id, str) else f"env-{env_id}"
@@ -66,6 +66,7 @@ class FlowEnvImp(Environment):
     def reset(self) -> None:
         self.logger.info("calling reset")
         """重置状态，开始一个新的 episode"""
+        self._pipeline.reset()
         self._obs_data = self._env.reset()
         self._episode_done = False
 
@@ -101,38 +102,7 @@ class FlowEnvImp(Environment):
 
         self._agent_names = list(observe_return.keys())
         return observe_return
-    
-    def observe_back(self) -> Dict[str, NestedNDArray]:
-        self.logger.info("calling observe")
-        
-        if self._command_dict:
-            self._obs_data, self._episode_done = self._env.step(self._command_dict)
-            self._command_dict.clear()
-    
-        agent2state, agent2reward = self._pipeline.pre_process(self._obs_data, self._episode_done)
-        episode_done = self._episode_done
-        
-        if self._episode_done:
-            self.reset()
-            agent2state, _ = self._pipeline.pre_process(self._obs_data, self._episode_done)
 
-        for agent_name, agent_state_dict in agent2state.items():
-            reward = agent2reward.get(agent_name)
-            if isinstance(reward, dict):
-                agent_state_dict[REWARD] = np.array(sum(reward.values()), dtype=np.float32)
-            else:
-                agent_state_dict[REWARD] = np.array(reward, dtype=np.float32)
-            agent_state_dict[DONE] = np.array(episode_done, dtype=np.float32)
-        observe_return = {
-            agent_name: {
-                "obs": agent_state_dict,
-                "model": self._builder.get_model_name(agent_name),
-            }
-            for agent_name, agent_state_dict in agent2state.items() 
-        }
-
-        self._agent_names = list(observe_return.keys())
-        return observe_return
     
     def step(self, agent_name, predict_output): 
         self.logger.info(f"calling step {agent_name}")
@@ -142,10 +112,8 @@ class FlowEnvImp(Environment):
             action=copy.deepcopy(predict_output[ACTION]),
             predict_output=copy.deepcopy(predict_output),
         )
-        # agent_command_dict, decoder_mask_dict = self._pipeline.a2c(agent_name, action_data)
         agent_command_dict, action_mask, decoder_mask_dict = self._pipeline.post_process(agent_name, action_data)
         self._command_dict.update(agent_command_dict)
-        
         return {DECODER_MASK: decoder_mask_dict}
     
     def enhance_fragment(self, agent_name:str, fragments: List[Any]):
@@ -181,9 +149,7 @@ class FlowEnvImp(Environment):
             return list(reversed(advantages))
                 
 
-        # advantages = cal_gae(rewards, values, dones)
-        from hyuRL.src.flow.local.buffer import Fragment
-        advantages = Fragment().gae(rewards, values, dones)
+        advantages = cal_gae(rewards, values, dones)
 
         fragments_len = len(fragments)
         advantages_len = len(advantages)
@@ -194,9 +160,9 @@ class FlowEnvImp(Environment):
         if fragments_len == advantages_len + 1:
             fragments.pop(-1)
 
-        # for i in reversed(range(len(fragments))):
-        #     if drop_outs[i] == 1:
-        #         fragments.pop(i)
+        for i in reversed(range(len(fragments))):
+            if drop_outs[i] == 1:
+                fragments.pop(i)
 
     def __update_hidden_state(self, agent_name, predict_output): 
         if CRITIC_HIDDEN_STATE in predict_output:
@@ -206,13 +172,6 @@ class FlowEnvImp(Environment):
 
     @property
     def agent_names(self) -> List[str]:
-        """返回环境中当前剩余的 agents 的名字
-
-        Returns
-        -------
-        List[str]
-            agent_names
-        """
         return self._agent_names
 
     def set_config(self, config):
