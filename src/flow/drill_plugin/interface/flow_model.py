@@ -54,17 +54,17 @@ class FlowModelPPOSync(flow.Model):
 
     def __init__(self, model_name: str, builder: Builder):
         self._init(model_name, builder)
-        self.logger = getLogger(f"{model_name}-MASTER-PPO")
+        self.logger = getLogger(f"{model_name}-master")
 
     def __getstate__(self):
         self.logger.info("calling __getstate__")
         return self._model_name, self._builder, self._model._network.state_dict()
 
     def setstate_learn(self, state):
-        if not hasattr(self, "logger"):
-            self.logger = getLogger("{Learner}-PPO")
         try:
             model_name, builder, weights = state
+            if not hasattr(self, "logger"):
+                self.logger = getLogger(f"{model_name}-learner")
             self.logger.info(f"model_name : {model_name}")
             self.logger.info(f"builder : {builder}")
             weight_shape = {k: v.shape for k, v in weights.items()}
@@ -73,17 +73,17 @@ class FlowModelPPOSync(flow.Model):
             self._model._network.load_state_dict(weights)
         except Exception as e:
             self.logger.info(f"setstate learn error: {e}")
+            raise e
         self._model._network.train()
-        self.logger = getLogger(f"{model_name}-learn")
         if torch.cuda.is_available():
             self._model._network.cuda()
 
     def setstate_predict(self, state=None):
-        if not hasattr(self, "logger"):
-            self.logger = getLogger("{Predictor}-PPO")
-        self.logger.info("calling set state predict")
         try:
             model_name, builder, weights = state
+            if not hasattr(self, "logger"):
+                self.logger = getLogger(f"{model_name}-predictor")
+            self.logger.info("calling set state predict")
             self.logger.info(f"model_name : {model_name}")
             self.logger.info(f"builder : {builder}")
             weight_shape = {k: v.shape for k, v in weights.items()}
@@ -92,9 +92,10 @@ class FlowModelPPOSync(flow.Model):
             self._model._network.load_state_dict(weights)
         except Exception as e:
             self.logger.info(f"setstate predict error: {e}")
+            raise e
+        
         self._model._network.requires_grad_(False)
         self._model._network.eval()
-        self.logger = getLogger(f"{self._model_name}-predict")
 
         if torch.cuda.is_available():
             self._model._network.cuda()
@@ -130,26 +131,10 @@ class FlowModelPPOSync(flow.Model):
         if model_name in builder.save_params:
             self._save_params = builder.save_params[model_name]
             Path(f'{self._save_params["path"]}/{self._model_name}').mkdir(parents=True, exist_ok=True)
-        self.logger = None
         self.last_learn = None
 
 
-    def __init_logger(self):
-        self.logger = logging.getLogger(f"model_learn")
-        self.logger.setLevel(10)
-        self._model.logger = self.logger
-        if not self.logger.handlers:
-            try:
-                handler = logging.FileHandler(f"/job/logs/logs/model_learn.log")
-            except:
-                handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter('[%(name)s] [%(asctime)s] [%(filename)s:%(lineno)s] %(message)s'))
-            self.logger.addHandler(handler)
-        self.logger.info('Logger Init Finished')
-
     def learn(self, piece: List[Dict[str, Any]]) -> bool:
-        if not self.logger:
-            self.__init_logger()
         state_dict, behavior_info_dict, mask_dict, advantage = piece
         behavior_info_dict.update(advantage)
         behavior_info_dict[DECODER_MASK] = mask_dict[DECODER_MASK]
@@ -161,12 +146,13 @@ class FlowModelPPOSync(flow.Model):
         summary_dict = self._model.learn(training_data)
         summary_dict= trans2numpy(summary_dict)
 
-        self._learn_step += 1
         if True:
             summary.sum(f"{self._model_name}_update_step", 1, source="origin")
             if hasattr(self, "_save_params") and self._learn_step % self._save_params["interval"] == 0:
                 self.save_weights(self._save_params["mode"])
                 self.logger.info("saving weights of model.")
+
+        self._learn_step += 1
         return True
 
     def predict(self, state_dict: Dict[str, Any]) -> Dict[str, Any]:

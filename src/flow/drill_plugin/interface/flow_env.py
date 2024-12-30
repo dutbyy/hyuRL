@@ -77,7 +77,6 @@ class FlowEnvImp(Environment):
         self._command_dict = {}
 
     def observe(self) -> Dict[str, NestedNDArray]:
-        self.logger.info("calling observe")
 
         # 如果上次的_obs_data 是空的
         if self._episode_done:
@@ -108,7 +107,6 @@ class FlowEnvImp(Environment):
 
 
     def step(self, agent_name, predict_output): 
-        self.logger.info(f"calling step {agent_name}")
         self.__update_hidden_state(agent_name, predict_output)
 
         action_data = ActionData(
@@ -121,7 +119,7 @@ class FlowEnvImp(Environment):
 
     def enhance_fragment(self, agent_name:str, fragments: List[Any]):
 
-        self.logger.info(f"enhance_fragment {agent_name}")
+        self.logger.info(f"enhance_fragment {agent_name}: {len(fragments)}")
         rewards = []
         values = []
         dones = []
@@ -142,7 +140,7 @@ class FlowEnvImp(Environment):
             advantages = []
             advantage = 0.0
             gamma: float = 0.99
-            lamb: float = 0.0
+            lamb: float = 0.95
             for i in reversed(range(len(rewards) - 1)):
                 reward, value, next_value = rewards[i + 1], values[i], values[i + 1]
                 non_terminate = 1 - int(dones[i + 1])
