@@ -21,14 +21,16 @@ def construct(class_dict: Dict):
 
 def timer_decorator(func):
     import timeit
+    import inspect
 
     def wrapper(*args, **kwargs):
         start = timeit.default_timer() * 1000
         result = func(*args, **kwargs)
         end = timeit.default_timer() * 1000
         eplased_time = round(end - start, 1)
-        logger = logging.getLogger(f"model_learn")
+        # logger = logging.getLogger(f"model_learn")
         # logger.info(f"函数 {func.__name__} 执行时间: {eplased_time} ms")
+        print(f"函数 {inspect.getfile(func)}:[{func.__name__}] 执行时间: {eplased_time} ms")
         return result
 
     return wrapper
