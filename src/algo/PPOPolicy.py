@@ -17,7 +17,7 @@ class PPOPolicy:
         self._network = ComplexNetwork(network_config)
         self._network.to(self.device)
         self._optimizer = torch.optim.Adam(self._network.parameters(), lr=1e-4)
-        self._loss_fn = PPOLoss(clip_epsilon=0.1, entropy_coef=0.005)
+        self._loss_fn = PPOLoss(clip_epsilon=0.1, entropy_coef=0.02)
         self.memory = Memory()
 
     def train_mode(self):
@@ -47,7 +47,7 @@ class PPOPolicy:
             )
             old_logp = sum(old_logp_dict_running.values())
 
-        for epoch in range(10):
+        for epoch in range(1):
             predict_output_dict = self._network(
                 inputs_dict, behavior_action_dict, training=True
             )
