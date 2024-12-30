@@ -1,4 +1,5 @@
 import pickle
+import gzip
 import dill
 import grpc
 import time
@@ -102,9 +103,13 @@ def split_outputs(results):
 class PredictorClient:
     def __init__(self, host, port, aio=True):
         if aio:
-            self.channel = grpc.aio.insecure_channel(f'{host}:{port}')
+            self.channel = grpc.aio.insecure_channel(f'{host}:{port}',
+                                                     options=[('grpc.max_send_message_length', -1),  # 发送的最大消息长度，-1 表示无限制
+                                                        ('grpc.max_receive_message_length', -1)])
         else:
-            self.channel = grpc.insecure_channel(f'{host}:{port}')
+            self.channel = grpc.insecure_channel(f'{host}:{port}',
+                                                     options=[('grpc.max_send_message_length', -1),  # 发送的最大消息长度，-1 表示无限制
+                                                        ('grpc.max_receive_message_length', -1)])
         self.stub = predictor_pb2_grpc.PredictorServiceStub(self.channel)
 
     async def predict(self, state_dict):
@@ -113,7 +118,7 @@ class PredictorClient:
         return common_deserialize(inference_response.data), inference_response.err_code
 
     def update_weight(self, model_name, weights):
-        pickle_weight = pickle.dumps(weights)
+        pickle_weight = gzip.compress(pickle.dumps(weights))
         req = predictor_pb2.UpdateWeightReq(model_name=model_name, weight=pickle_weight)
         return self.stub.UpdateWeight(req)
 
@@ -144,7 +149,7 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
     async def UpdateWeight(self, request, context):
         model_name = request.model_name
         print(f"Updating weights for model: [{model_name}]")
-        weights = pickle.loads(request.weight)
+        weights = pickle.loads(gzip.decompress(request.weight))
         flow_model = self._name2model.get(model_name)
         
         with torch.no_grad():
@@ -195,7 +200,10 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
 
 async def serve(name2model):
     from concurrent import futures
-    server = grpc.aio.server()
+    server = grpc.aio.server(
+        options=[('grpc.max_send_message_length', -1),  # 发送的最大消息长度，-1 表示无限制
+        ('grpc.max_receive_message_length', -1)]
+    )
     for name, model in name2model.items():
         model.setstate_predict()
     service = PredictorServiceServicer(name2model)
@@ -211,7 +219,7 @@ async def serve(name2model):
     await server.wait_for_termination()
 
 
-def main(flow_config, model_name, builder):
+def main(flow_config, builder):
     predict_model_names = []
     for actor_name, actor_config in flow_config['actor_config'].items():
         for model_learn_config in actor_config['training_models']:
@@ -224,13 +232,11 @@ def main(flow_config, model_name, builder):
         name2model[model_name] = flow_model
         ret = flow_model.__getstate__()
         tmp = pickle.dumps(ret)
-        print("try pickle it")
-        tmp = dill.dumps(ret)
-        print("try dill it")
+        print(f"try pickle {model_name}")
         
     print("prepare to server")
     asyncio.run(serve(name2model))
 
 if __name__ == '__main__':
-    from hyuRL.example.cartpole.entry import flow_config, builder
-    main(flow_config, 'cp_model', builder)
+    from hyuRL.example.atari.entry import flow_config, builder
+    main(flow_config, builder)

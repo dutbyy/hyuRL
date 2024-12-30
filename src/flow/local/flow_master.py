@@ -35,14 +35,15 @@ class LocalMaster:
         self.predictor = PredictorClient("localhost", 50051, False)
         self.actor = Actor(env_num=8, flow_config=flow_config)
         self.learner = LocalLearner(flow_config, model_name, builder)
-        self.batch_size = 4096
+        self.batch_size = 4096 * 16
         self.train_step = 0
         
     def run(self):
         self.actor.start_sampling()
         weights = self.learner.get_weights()
-        self.predictor.update_weight("cp_model", weights)
-
+        self.learner.flow_model.save_weights()
+        self.predictor.update_weight("adventure_model", weights)
+        
         while True:
             self.train_step += 1
             datas = self.actor.get_batch(self.batch_size)
@@ -50,7 +51,7 @@ class LocalMaster:
             self.learner.train(train_datas)
             print(f"train step :{self.train_step}")
             weights = self.learner.get_weights()
-            self.predictor.update_weight("cp_model", weights)
+            self.predictor.update_weight("adventure_model", weights)
             if self.train_step % 50 == 0:
                 self.learner.flow_model.save_weights()
 
@@ -58,9 +59,23 @@ class LocalMaster:
 def main():
     import multiprocessing
     multiprocessing.set_start_method('spawn')
-    from hyuRL.example.cartpole.entry import flow_config, builder
-    master = LocalMaster(flow_config, 'cp_model', builder)
+    from hyuRL.example.atari.entry import flow_config, builder
+    master = LocalMaster(flow_config, 'adventure_model', builder)
     master.run()
     
+def fix_print():
+    import builtins, os
+    origin_print = builtins.print
+    def custom_print(*args, **kwargs):
+        import datetime
+        import inspect
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        caller = inspect.getframeinfo(inspect.stack()[1][0])
+        prefix = f"[{timestamp}] [{os.path.basename(caller.filename)}:{caller.lineno}]"
+        origin_print(prefix, *args, **kwargs)
+    builtins.print = custom_print
+
+
 if __name__ == '__main__':
+    fix_print()
     main()

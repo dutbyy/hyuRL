@@ -10,7 +10,7 @@ from typing import Dict, Any
 
 from hyuRL.src.flow.drill_plugin.api.flow_api import EnvironmentDescriptor
 from hyuRL.src.flow.local.flow_predictor import PredictorClient
-from hyuRL.src.tools.common import construct
+from hyuRL.src.tools.common import construct, timer_decorator
 
 mean = lambda x : sum(x)/len(x)
 def sample_target(sample_config):
@@ -28,12 +28,12 @@ class SingleActor:
         self.data_size = data_size
         
         self.predictor: PredictorClient = PredictorClient("localhost", 50051)
-        self.fragment_size = 32
+        self.fragment_size = 64
         self.flow_config = flow_config
         self.env_desc = env_desc
 
     async def run(self):
-        await asyncio.gather(*[self.start_one_task(idx) for idx in range(1)])
+        await asyncio.gather(*[self.start_one_task(idx) for idx in range(16)])
 
     async def start_one_task(self, idx):
         self.env_desc.environment_id_on_this_task += idx
@@ -53,9 +53,9 @@ class SingleActor:
                     await asyncio.sleep(1)
                 episode_done = False if state_dict else True
                 if episode_done:
-                    state_dict = {"cpdemo": {"obs": {"reward": 0.0, "done": 1.0}}}
-                    action_dict = {"cpdemo": {"value": 0.0}}
-                    decoder_mask_dict = {"cpdemo": None}
+                    state_dict = {"adventure-agent": {"obs": {"reward": 0.0, "done": 1.0}}}
+                    action_dict = {"adventure-agent": {"value": 0.0}}
+                    decoder_mask_dict = {"adventure-agent": None}
                     piece = [state_dict, action_dict, decoder_mask_dict]
                 else:
                     action_dict = {}
@@ -75,7 +75,7 @@ class SingleActor:
                         agent_piece = [piece[0][agent_name]['obs'], piece[1][agent_name], piece[2][agent_name]]
                         fragments[agent_name].append(agent_piece)
                              
-                total_reward += state_dict['cpdemo']["obs"]['reward']
+                total_reward += state_dict['adventure-agent']["obs"]['reward']
        
                 for agent_name in state_dict.keys():
                     agent_fragments = fragments[agent_name]
@@ -107,21 +107,21 @@ class Actor:
         self.sampling_flag = multiprocessing.Value("i", 0)
         self.logger = logging.getLogger("Actor")
 
+    @timer_decorator
     def get_batch(self, batch_size=512):
-        self.datas[:] = []
-        self.total_rewards[:] = []
-        self.data_size.value = 0
-        self.sampling_flag.value = 1
         while True:
             print(f"the sum of frament is {self.data_size.value:4}", end="\r", flush=True)
             if self.data_size.value >= batch_size:
                 break
             time.sleep(0.1)
+        print('collect over')
         if len(self.total_rewards):
             self.logger.info(f"average episode reward is {mean(self.total_rewards):.1f}")
             print(f"average episode reward is {mean(self.total_rewards):.1f}")
-        self.sampling_flag.value = 0
         rets = [pickle.loads(item) for item in self.datas]
+        self.datas[:] = []
+        self.total_rewards[:] = []
+        self.data_size.value = 0
         return rets
 
     def start_sampling(self):

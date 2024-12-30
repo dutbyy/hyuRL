@@ -3,6 +3,7 @@ import gym
 from hyuRL.src.memory.buffer import Memory
 from hyuRL.src.tools.common import construct, timer_decorator
 from typing import Dict
+from hyuRL.src.tools.common import timer_decorator
 
 class LocalLearner:
     def __init__(self, flow_config: Dict, model_name: str, builder):
@@ -10,7 +11,8 @@ class LocalLearner:
         self.flow_model.setstate_learn([self.flow_model._model_name, builder, self.flow_model._model._network.state_dict()])
         self.flow_model._model._network.cuda()
         self.flow_model._model.train_mode()
-        
+    
+    @timer_decorator  
     def train(self, train_data):
 
         return self.flow_model.learn(train_data)
