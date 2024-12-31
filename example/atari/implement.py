@@ -1,4 +1,3 @@
-
 import gymnasium as gym
 import ale_py
 gym.register_envs(ale_py)
@@ -7,6 +6,7 @@ import numpy as np
 from drill.pipeline.interface import ObsData, ActionData
 from drill import summary
 import logging
+from .atari_wrappers import wrap_deepmind
 
 def getLogger(env_id):
     log_name = env_id if isinstance(env_id, str) else f"env-{env_id}"
@@ -23,9 +23,13 @@ def getLogger(env_id):
         pass
     return logger
 
+
 class GymEnv:
     def __init__(self, env_id, extra_info):
-        self.env = gym.make("ALE/BeamRider-v5", obs_type='ram', max_episode_steps=500)
+        atari_env_args = extra_info.get("atari_env_args")
+        dim = extra_info.get("image_dim", 64)
+        # self.env = wrap_deepmind(gym.make(env_name, max_episode_steps=10000), dim=64)
+        self.env = wrap_deepmind(gym.make(**atari_env_args), dim=dim)
 
         self.agent_names = ["adventure-agent"]
         self.logger = getLogger(env_id)
@@ -34,8 +38,7 @@ class GymEnv:
     def reset(self):
         self.total_reward = 0
         self.step_num = 0
-        raw_obs, info = self.env.reset()
-        # self.env.render()
+        raw_obs, info= self.env.reset()
         return {
             agent_name: ObsData(
                 obs = raw_obs,
@@ -54,6 +57,7 @@ class GymEnv:
         self.total_reward += reward
         if terminated or truncated:
             summary.average("episode_reward", self.total_reward)
+            summary.average("episode_step", self.step_num)
             self.hist_rewards.append(self.total_reward)
             if len(self.hist_rewards) >= 10:
                 mean = lambda x : sum(x)/len(x)

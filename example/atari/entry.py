@@ -7,14 +7,14 @@ flow_config = {
     'algorithm': {'flow_env': FlowEnvPPO, 'flow_model': FlowModelPPO},
     'builder': builder,
     'actor_config': {
-        'actor_209': {
+        'actor_atari': {
             'training_models': [
                 {
-                    'model_name': 'adventure_model',
+                    'model_name': 'atari_model',
                     'fragment_size': 512,
                     'replay_size': 1,
-                    'sample_batch_size': 4096,
-                    'max_data_reuse': 0,
+                    'sample_batch_size': 4096 * 4,
+                    'max_data_reuse': 2,
                     'putback_replays': False,
                     'sample_mode': "LIFO",
                     'replay_buffer_size': 16,

@@ -9,21 +9,18 @@ from drill.pipeline import AgentPipeline, HandlerSpecies
 
 network_cfg = CommanderNetworkConfig(
     encoders=[
-        # SpatialEncoderConfig(
-        #     hidden_layer_sizes=[32],
-        #     channel_num = 4,
-        #     down_samples = [(16, 3, 1, 1)],
-        #     res_block_num = 0,
-        #     feature_set=SpatialFeatureSet(
-        #         name="common", 
-        #         shape=[250, 160],
-        #         feature_dict={"raw": VectorFeature(3)}
-        #     )
-        # ),
-        CommonEncoderConfig(
-            feature_set=CommonFeatureSet(
-                name="common", 
-                feature_dict={"raw": VectorFeature(128)}
+        SpatialEncoderConfig(
+            channel_num = 4,
+            down_samples = [
+                (16, 4, 2, 'same'),
+                (32, 4, 2, 'same'),
+                (256, 11, 1, 'valid'),
+            ],
+            res_block_num = 0,
+            feature_set=SpatialFeatureSet(
+                name="common",
+                shape=[64, 64],
+                feature_dict={"raw": VectorFeature(4)}
             )
         ),
     ],
@@ -33,7 +30,7 @@ network_cfg = CommanderNetworkConfig(
 )
 
 model_config = {
-    "adventure_model": {
+    "atari_model": {
         "class": PPOPolicy,  # 选用最佳实践推荐的模型，基于ppo的CommanderModel
         "params": {
             "network_config": network_cfg,  # 神经网络结构
@@ -48,7 +45,7 @@ model_config = {
 feature_list = [encoder_cfg.feature_set for encoder_cfg in network_cfg.encoders]
 
 pipeline = {
-    "adventure_pipeline": {
+    "atari_pipeline": {
         "class": AgentPipeline,
         "params": {
             "handler_dict": {
@@ -59,22 +56,25 @@ pipeline = {
                 HandlerSpecies.REWARD: PipelineImplement.reward_handler,
                 HandlerSpecies.ACTION: PipelineImplement.action_handler,
             },
-            "batch_config": {  # advantage
-                "gamma": 0.99,
-                "lamb": 0.95,
-            },
+            # "batch_config": {  # advantage
+            #     "gamma": 0.99,
+            #     "lamb": 0.95,
+            # },
         },
     }
 }
 
-agents = {"adventure-agent": {"model": "adventure_model", "pipeline": "adventure_pipeline"}}
+agents = {"atari_agent": {"model": "atari_model", "pipeline": "atari_pipeline"}}
 
 
 env = {
     "class": GymEnv,
     "params": {
-        # "id": "CartPole-v0",
-        # "max_episode_steps": 500,
+        "atari_env_args" : {
+            "id": "ALE/BeamRider-v5",
+            "max_episode_steps": 10000,
+        },
+        "image_dim": 64,
     },
 }
 
