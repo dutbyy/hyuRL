@@ -127,7 +127,7 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
     def __init__(self, name2model, *args, **kwargs):
         self._data_queue = {name: asyncio.Queue() for name in name2model}
         self._name2model = name2model
-        self.batch_size = 8
+        self.batch_size = 4
         self.start_time = None
         self.timeout = 10
         self.times = 0
@@ -151,7 +151,7 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
         print(f"Updating weights for model: [{model_name}]")
         weights = pickle.loads(gzip.decompress(request.weight))
         flow_model = self._name2model.get(model_name)
-        
+
         with torch.no_grad():
             for target_p, p in zip(flow_model._model._network.parameters(), weights):
                 target_p.copy_(torch.from_numpy(p))
@@ -183,7 +183,7 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
                         pass
                 elif len(requests) > 0:
                     break
-                  
+
             def batch_inference(requests):
                 inputs = convert_to_batch_state([it[0] for it in requests])
                 results = self._name2model[model_name].predict(inputs)
@@ -192,7 +192,7 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
                     result = results[idx]
                     if not future.cancelled() and not future.done():
                         future.set_result(result)
-                        
+            # print(f"batch infer :{len(requests)}")
             batch_inference(requests)
             start_time = time.time()
             requests = []
@@ -205,7 +205,7 @@ async def serve(name2model):
         ('grpc.max_receive_message_length', -1)]
     )
     for name, model in name2model.items():
-        model.setstate_predict()
+        model.setstate_predict(model.__getstate__())
     service = PredictorServiceServicer(name2model)
     predictor_pb2_grpc.add_PredictorServiceServicer_to_server(service, server)
     server.add_insecure_port('[::]:50051')
@@ -233,7 +233,7 @@ def main(flow_config, builder):
         ret = flow_model.__getstate__()
         tmp = pickle.dumps(ret)
         print(f"try pickle {model_name}")
-        
+
     print("prepare to server")
     asyncio.run(serve(name2model))
 

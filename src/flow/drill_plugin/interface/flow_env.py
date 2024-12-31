@@ -106,7 +106,7 @@ class FlowEnvImp(Environment):
         return observe_return
 
 
-    def step(self, agent_name, predict_output): 
+    def step(self, agent_name, predict_output):
         self.__update_hidden_state(agent_name, predict_output)
 
         action_data = ActionData(

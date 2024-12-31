@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 def lfPPO(old_log_prob, log_prob, advantage, old_value, value, target_value, entropy):
-    pass 
+    pass
 
 class PPOLoss(nn.Module):
     def __init__(self, clip_epsilon=0.2, value_clip=5, value_coef=1, entropy_coef=0.01):
@@ -42,35 +42,35 @@ class PPOLoss(nn.Module):
         # 为了限制参数更新的距离(clip), 通过loss加入clip 约束梯度更新
         # ratio:  exp(logp-logpold) = p/oldp  表示新旧策略的差距 clip > 1 表示当前策略比之前更大概率选择当前动作
         # adv表示当前动作的好坏(相比期望)
-        # adv为正: 
+        # adv为正:
         #     ratio > 1 + clip, clip掉 (动作好的时候, 避免太容易选)
         #     ratio < 1 - clip, 不进行clip
-        # adv为负: 
+        # adv为负:
         #     ratio < 1 - clip, clip掉 (动作不好的时候, 避免完全不选)
-        #     ratio > 1 + clip, 不进行clip 
+        #     ratio > 1 + clip, 不进行clip
         # 计算 surrogate loss
         ratio =  torch.exp(log_prob - old_log_prob)
         clipped_ratio = torch.clamp(ratio, 1 - self._clip_epsilon, 1 + self._clip_epsilon)
         surrogate_loss = -torch.min(ratio * advantage, clipped_ratio * advantage)
         policy_loss = surrogate_loss.mean()
-        
+
         clipped_mask = (- ratio * advantage != surrogate_loss).float()
-        
-        # 裁剪值函数预测值       
+
+        # 裁剪值函数预测值
         # 此处的clip是希望避免value的更新太激进
-        # v_old, -> v_target ; 如果v_pred 在两者之间, 且v_pred的距和v_old的距离已经超过clip，则需要将其进行clip 这个时候 clip loss > pred loss        
+        # v_old, -> v_target ; 如果v_pred 在两者之间, 且v_pred的距和v_old的距离已经超过clip，则需要将其进行clip 这个时候 clip loss > pred loss
         value_pred_clip = old_value + torch.clamp(value - old_value, -self._value_clip, self._value_clip)
         value_loss1 = (value - target_value).pow(2)
         value_loss2 = (value_pred_clip - target_value).pow(2)
         clipped_loss = torch.max(value_loss1, value_loss2)
-        value_loss = 0.5 * clipped_loss.mean() 
+        value_loss = 0.5 * clipped_loss.mean()
 
         value_loss = self._value_coef * value_loss
         entropy_loss = - self._entropy_coef * entropy
         loss = policy_loss + value_loss + entropy_loss
         return loss, policy_loss, value_loss, entropy_loss, ratio, clipped_mask
-    
-    
+
+
 def test():
     # 示例用法：
     advantages = torch.tensor([0.1, 0.2, 0.3])
@@ -81,4 +81,3 @@ def test():
     loss_fn = PPOLoss()
     loss = loss_fn(advantages, old_probs, new_probs, values)
     print("总损失:", loss.item())
-

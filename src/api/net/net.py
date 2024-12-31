@@ -9,7 +9,7 @@ from hyuRL.src.network.aggregator import aggregator
 @dataclass
 class NetConfig:
     name: str = ""
-    hidden_layer_sizes: List[int] = field(default_factory = lambda : [256,  128])
+    hidden_layer_sizes: List[int] = field(default_factory = lambda : [64])
     dependency: List[str] = None
     def get_name(self):
         return self.name
@@ -19,19 +19,19 @@ class EncoderConfig(NetConfig):
     feature_set: FeatureSet = None
     def get_name(self):
         return self.name if self.name else f"encoder_{self.feature_set.name}"
-    
+
     def __post_init__(self):
         if not self.name:
             self.name = f'encoder_{self.feature_set.name}'
-    
+
     @property
     def feature_size(self):
         return self.feature_set.length
-    
+
     def __post_init__(self):
         if self.feature_set is None:
             raise ValueError("feature_set must be provided")
-    
+
 @dataclass
 class AggregatorConfig(NetConfig):
     name: "aggregator"
@@ -44,7 +44,7 @@ class DecoderConfig(NetConfig):
 
 @dataclass
 class CommonEncoderConfig(EncoderConfig, NetConfig):
-    # feature_set: FeatureSet 
+    # feature_set: FeatureSet
     pass
 
 @dataclass
@@ -52,22 +52,22 @@ class EntityEncoderConfig(EncoderConfig):
     transformer: Any = None
     pooling: Any = None
     feature_set : FeatureSet
-    
+
     @property
     def length(self):
         return self.feature_set.shape[0]
-    
+
 @dataclass
 class SpatialEncoderConfig(EncoderConfig):
     channel_num: int = 32
     transformer: Any = None
     down_samples: List[int] = None
     res_block_num : int = 4
-    
+
     @property
     def shape(self):
         return self.feature_set.shape[:-1]
-    
+
 @dataclass
 class CategoricalDecoderConfig(DecoderConfig):
     n: int = -1
@@ -91,9 +91,8 @@ class DenseAggregatorConfig(AggregatorConfig):
     activation: str = "relu"
 
 @dataclass
-class CommanderNetworkConfig: 
-    encoders:   List[EncoderConfig] 
+class CommanderNetworkConfig:
+    encoders:   List[EncoderConfig]
     decoders:   List[DecoderConfig]
     aggregator: AggregatorConfig = DenseAggregatorConfig()
     value:      ValueApproximatorConfig = ValueApproximatorConfig()
-

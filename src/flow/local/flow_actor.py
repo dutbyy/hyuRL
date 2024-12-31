@@ -26,14 +26,14 @@ class SingleActor:
         self.sampling_flag = sampling_flag
         self.datas = datas
         self.data_size = data_size
-        
+
         self.predictor: PredictorClient = PredictorClient("localhost", 50051)
-        self.fragment_size = 64
+        self.fragment_size = 128
         self.flow_config = flow_config
         self.env_desc = env_desc
 
     async def run(self):
-        await asyncio.gather(*[self.start_one_task(idx) for idx in range(16)])
+        await asyncio.gather(*[self.start_one_task(idx) for idx in range(1)])
 
     async def start_one_task(self, idx):
         self.env_desc.environment_id_on_this_task += idx
@@ -53,9 +53,9 @@ class SingleActor:
                     await asyncio.sleep(1)
                 episode_done = False if state_dict else True
                 if episode_done:
-                    state_dict = {"adventure-agent": {"obs": {"reward": 0.0, "done": 1.0}}}
-                    action_dict = {"adventure-agent": {"value": 0.0}}
-                    decoder_mask_dict = {"adventure-agent": None}
+                    state_dict = {"atari_agent": {"obs": {"reward": 0.0, "done": 1.0}}}
+                    action_dict = {"atari_agent": {"value": 0.0}}
+                    decoder_mask_dict = {"atari_agent": None}
                     piece = [state_dict, action_dict, decoder_mask_dict]
                 else:
                     action_dict = {}
@@ -64,32 +64,32 @@ class SingleActor:
                         action_dict[agent_name] = outputs
 
                     decoder_mask_dict = {
-                        agent_name : flow_env.step(agent_name, agent_command_dict) 
-                        for agent_name, agent_command_dict in action_dict.items() 
+                        agent_name : flow_env.step(agent_name, agent_command_dict)
+                        for agent_name, agent_command_dict in action_dict.items()
                     }
                     nstate_dict: Dict[str, Dict[str, Any]] = flow_env.observe()
                     piece = [state_dict, action_dict, decoder_mask_dict]
-                    
+
 
                     for agent_name in state_dict.keys():
                         agent_piece = [piece[0][agent_name]['obs'], piece[1][agent_name], piece[2][agent_name]]
                         fragments[agent_name].append(agent_piece)
-                             
-                total_reward += state_dict['adventure-agent']["obs"]['reward']
-       
+
+                total_reward += state_dict['atari_agent']["obs"]['reward']
+
                 for agent_name in state_dict.keys():
                     agent_fragments = fragments[agent_name]
                     if len(agent_fragments) >= self.fragment_size or episode_done:
                         with self.data_size.get_lock():
                             self.data_size.value += len(agent_fragments) - 1
                         flow_env.enhance_fragment(agent_name, agent_fragments)
-                        self.datas.extend([pickle.dumps(item) for item in agent_fragments ]) 
+                        self.datas.extend([pickle.dumps(item) for item in agent_fragments ])
                         fragments[agent_name].clear()
-                       
+
                         if not episode_done:
                             agent_piece = [piece[0][agent_name]['obs'], piece[1][agent_name], piece[2][agent_name]]
                             fragments[agent_name].append(agent_piece)
-                
+
                 if episode_done:
                     self.total_rewards.append(total_reward)
                     break
@@ -109,19 +109,24 @@ class Actor:
 
     @timer_decorator
     def get_batch(self, batch_size=512):
+        self.datas[:] = []
+        self.data_size.value = 0
+        self.sampling_flag.value = 1
         while True:
             print(f"the sum of frament is {self.data_size.value:4}", end="\r", flush=True)
             if self.data_size.value >= batch_size:
                 break
             time.sleep(0.1)
-        print('collect over')
+        print('')
+        print('collect over.')
         if len(self.total_rewards):
+            if len(self.total_rewards) > 100:
+                self.total_rewards[:] = self.total_rewards[-100:]
             self.logger.info(f"average episode reward is {mean(self.total_rewards):.1f}")
             print(f"average episode reward is {mean(self.total_rewards):.1f}")
         rets = [pickle.loads(item) for item in self.datas]
-        self.datas[:] = []
-        self.total_rewards[:] = []
-        self.data_size.value = 0
+
+        self.sampling_flag.value = 0
         return rets
 
     def start_sampling(self):
@@ -131,11 +136,11 @@ class Actor:
         sample_args = {
             "class": SingleActor,
             "params": {
-                "total_rewards": self.total_rewards, 
+                "total_rewards": self.total_rewards,
                 "datas": self.datas,
-                "data_size": self.data_size, 
-                "sampling_flag": self.sampling_flag, 
-                "flow_config": self.flow_config, 
+                "data_size": self.data_size,
+                "sampling_flag": self.sampling_flag,
+                "flow_config": self.flow_config,
             },
         }
         for idx in range(self.env_num):

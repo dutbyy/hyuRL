@@ -13,8 +13,8 @@ network_cfg = CommanderNetworkConfig(
             channel_num = 4,
             down_samples = [
                 (16, 4, 2, 'same'),
-                (32, 4, 2, 'same'),
-                (256, 11, 1, 'valid'),
+                # (32, 4, 2, 'same'),
+                # (256, 11, 1, 'valid'),
             ],
             res_block_num = 0,
             feature_set=SpatialFeatureSet(

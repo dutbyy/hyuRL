@@ -1,7 +1,7 @@
 from typing import Dict
 from hyuRL.src.flow.local.flow_actor import Actor
 from hyuRL.src.flow.local.flow_predictor import PredictorClient
-from hyuRL.src.flow.local.flow_learner import LocalLearner 
+from hyuRL.src.flow.local.flow_learner import LocalLearner
 from copy import deepcopy
 import numpy as np
 import random
@@ -25,7 +25,7 @@ def datas_prefix(datas, batch_size=1024):
     demo = deepcopy(datas[0])
     return dg(demo, datas)
 
-def trans2tensor(nested_structure):   
+def trans2tensor(nested_structure):
     import tree
     import torch
     return tree.map_structure(lambda x: torch.from_numpy(x).cuda(), nested_structure)
@@ -33,25 +33,28 @@ def trans2tensor(nested_structure):
 class LocalMaster:
     def __init__(self, flow_config: Dict, model_name: str, builder):
         self.predictor = PredictorClient("localhost", 50051, False)
-        self.actor = Actor(env_num=8, flow_config=flow_config)
+        self.actor = Actor(env_num=4, flow_config=flow_config)
         self.learner = LocalLearner(flow_config, model_name, builder)
-        self.batch_size = 4096 * 16
+        self.batch_size = 2048
         self.train_step = 0
-        
+
     def run(self):
         self.actor.start_sampling()
         weights = self.learner.get_weights()
         self.learner.flow_model.save_weights()
-        self.predictor.update_weight("adventure_model", weights)
-        
+        self.predictor.update_weight("atari_model", weights)
+
         while True:
             self.train_step += 1
             datas = self.actor.get_batch(self.batch_size)
-            train_datas = datas_prefix(datas)
-            self.learner.train(train_datas)
+
+            for epoch in range(10):
+                train_datas = datas_prefix(datas, self.batch_size//2)
+                self.learner.train(train_datas)
+
             print(f"train step :{self.train_step}")
             weights = self.learner.get_weights()
-            self.predictor.update_weight("adventure_model", weights)
+            self.predictor.update_weight("atari_model", weights)
             if self.train_step % 50 == 0:
                 self.learner.flow_model.save_weights()
 
@@ -60,9 +63,9 @@ def main():
     import multiprocessing
     multiprocessing.set_start_method('spawn')
     from hyuRL.example.atari.entry import flow_config, builder
-    master = LocalMaster(flow_config, 'adventure_model', builder)
+    master = LocalMaster(flow_config, 'atari_model', builder)
     master.run()
-    
+
 def fix_print():
     import builtins, os
     origin_print = builtins.print

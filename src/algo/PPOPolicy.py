@@ -16,8 +16,8 @@ class PPOPolicy:
         self.trainning = trainning
         self._network = ComplexNetwork(network_config)
         self._network.to(self.device)
-        self._optimizer = torch.optim.Adam(self._network.parameters(), lr=1e-4)
-        self._loss_fn = PPOLoss(clip_epsilon=0.1, entropy_coef=0.02)
+        self._optimizer = torch.optim.Adam(self._network.parameters(), lr=2.5e-4)
+        self._loss_fn = PPOLoss(clip_epsilon=0.2, entropy_coef=0.0)
         self.memory = Memory()
 
     def train_mode(self):
@@ -39,8 +39,8 @@ class PPOPolicy:
         behavior_values = trainning_data.get("value")
         advantages = trainning_data.get("advantage")
         target_value = advantages + behavior_values
-            
-            
+
+
         with torch.no_grad():
             old_logp_dict_running = self._network.log_probs(
                 behavior_logits_dict, behavior_action_dict, behavior_mask_dict

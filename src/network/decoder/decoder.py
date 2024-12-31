@@ -3,8 +3,8 @@ from torch.distributions import Distribution
 
 class Decoder(nn.Module):
     """
-    The Decoder typically serves as the exit of the entire network and there can be multiple decoders. 
-    The main function of the Decoder is to make decisions and output actions. 
+    The Decoder typically serves as the exit of the entire network and there can be multiple decoders.
+    The main function of the Decoder is to make decisions and output actions.
     When there are multiple decoders, one decoder's decision can be conditioned on the decisions of other decoders.
     """
 
@@ -20,3 +20,6 @@ class Decoder(nn.Module):
     def distribution(self, logits):
         # Define the distribution used for sampling here
         raise NotImplementedError
+
+
+decoder_pooling = None
