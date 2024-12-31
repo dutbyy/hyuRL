@@ -75,12 +75,23 @@ class SpatialEncoder(Encoder):
         layers.append(nn.Linear(in_features, channel_num))
         layers.append(nn.ReLU())
         layers.append(Permute(0, 3, 1, 2))
+        pre_shape = in_shape
         if down_samples:
             for filters, kernel_size, strides, padding in down_samples:
+                if padding == 'same':
+                    out_shape = [math.ceil(it/strides) for it in pre_shape]
+                    padded_shape = [int(it*strides -1 + kernel_size) for it in out_shape]
+                    # out_shape0 = int(math.ceil(pre_shape[0])/strides) * strides 
+                    # out_shape1 = int(math.ceil(pre_shape[0])/strides) * strides
+                    padding = [ (p1-p2)//2 for p1, p2 in zip(padded_shape, pre_shape)]
+                    pre_shape = out_shape
+                elif padding == 'valid':
+                    pre_shape = [pre_shape[0]//strides + 1 - kernel_size, pre_shape[1]//strides + 1 - kernel_size]
                 layers.append(
                     nn.Conv2d(channel_num, filters, kernel_size, strides, padding)
                 )
                 layers.append(nn.ReLU())
+                channel_num = filters
                 channel_num = filters
         if res_block_num:
             for _ in range(res_block_num):
@@ -88,7 +99,7 @@ class SpatialEncoder(Encoder):
 
         layers.append(Permute(0, 2, 3, 1))
         layers.append(nn.Flatten())
-        shape_size = math.prod(in_shape)
+        shape_size = math.prod(pre_shape)
         layers.append(nn.Linear(shape_size * channel_num, output_size))
         layers.append(nn.ReLU())
 

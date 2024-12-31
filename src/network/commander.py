@@ -5,7 +5,7 @@ from networkx import is_directed_acyclic_graph, topological_sort
 from torch import Value, nn
 from torch.nn import functional as F
 from typing import TYPE_CHECKING, Any, Dict, List, Callable, OrderedDict, Union
-
+from hyuRL.src.tools.common import timer_decorator
 
 HIDDEN_PREFIX = "__hidden_state_"
 EMBEDING_PREFIX = "__embedding_"
@@ -160,6 +160,7 @@ class ComplexNetwork(nn.Module):
         self.top_sorted = [it for it in top_generator]
         self._default_source_embeddings = torch.zeros(1)
 
+    # @timer_decorator
     def forward(self, input_dict: dict, behavior_action_dict=None, training=False):
         state_dict = input_dict.copy()
         predict_output_dict = OrderedDict(
