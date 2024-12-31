@@ -70,11 +70,15 @@ agents = {"atari_agent": {"model": "atari_model", "pipeline": "atari_pipeline"}}
 env = {
     "class": GymEnv,
     "params": {
-        "atari_env_args" : {
-            "id": "ALE/BeamRider-v5",
-            "max_episode_steps": 10000,
-        },
-        "image_dim": 64,
+        "atari_info": {
+            "atari_env_args" : {
+                "id": "ALE/BeamRider-v5",
+                "max_episode_steps": 10000,
+            },
+            "image_dim": 64,
+            "agent_names": list(agents.keys())
+        }
+
     },
 }
 
