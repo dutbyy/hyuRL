@@ -40,27 +40,27 @@ def generate(config):
     config.quick_dict = {}
     for encoder_cfg in config.encoders:
         name = encoder_cfg.get_name()
-            
+
         if isinstance(encoder_cfg, CommonEncoderConfig):
             encoder = CommonEncoder(
-                in_features=encoder_cfg.feature_size, 
+                in_features=encoder_cfg.feature_size,
                 hidden_layer_sizes=encoder_cfg.hidden_layer_sizes,
                 output_size=DefaultFeatureLength
             )
         elif isinstance(encoder_cfg, EntityEncoderConfig):
             encoder = EntityEncoder(
-                length=encoder_cfg.length, 
-                in_features=encoder_cfg.feature_size, 
+                length=encoder_cfg.length,
+                in_features=encoder_cfg.feature_size,
                 hidden_layer_sizes=encoder_cfg.hidden_layer_sizes,
                 output_size=DefaultFeatureLength,
                 transformer=encoder_cfg.transformer,
                 pooling=encoder_cfg.pooling,
-            ) 
+            )
         elif isinstance(encoder_cfg, SpatialEncoderConfig):
             encoder = SpatialEncoder(
-                in_shape=encoder_cfg.shape, 
-                in_features= encoder_cfg.feature_size, 
-                channel_num= encoder_cfg.channel_num, 
+                in_shape=encoder_cfg.shape,
+                in_features= encoder_cfg.feature_size,
+                channel_num= encoder_cfg.channel_num,
                 output_size= DefaultFeatureLength,
                 down_samples= encoder_cfg.down_samples,
                 res_block_num= encoder_cfg.res_block_num,
@@ -70,8 +70,8 @@ def generate(config):
         encoder_cfg.dependency = [encoder_cfg.feature_set.name]
         module_dict[name] = encoder
         config.quick_dict[name] = encoder_cfg
-    
-    
+
+
     aggregator = DenseAggregator(
         in_features = DefaultFeatureLength * len(config.encoders),
         hidden_layer_sizes = config.aggregator.hidden_layer_sizes,
@@ -81,7 +81,7 @@ def generate(config):
     module_dict[name] = aggregator
     config.aggregator.dependency = [encoder.get_name() for encoder in config.encoders]
     config.quick_dict[name] = config.aggregator
-    
+
     value = ValueApproximator(
         in_features = DefaultFeatureLength,
         hidden_layer_sizes = config.value.hidden_layer_sizes,
@@ -90,22 +90,22 @@ def generate(config):
     module_dict[name] = value
     config.value.dependency = [config.aggregator.get_name()]
     config.quick_dict[name] = config.value
-    
-    
+
+
     for decoder_cfg in config.decoders:
         name = decoder_cfg.get_name()
-            
+
         if isinstance(decoder_cfg, CategoricalDecoderConfig):
             decoder = CategoricalDecoder(
                 n = decoder_cfg.n,
                 in_features = DefaultFeatureLength,
-                hidden_layer_sizes=encoder_cfg.hidden_layer_sizes) 
+                hidden_layer_sizes=encoder_cfg.hidden_layer_sizes)
         elif isinstance(decoder_cfg, GaussianDecoderConfig):
             decoder = GaussianDecoder(
                 n = decoder_cfg.n,
                 in_features = DefaultFeatureLength,
                 hidden_layer_sizes=decoder_cfg.hidden_layer_sizes,
-            ) 
+            )
         elif isinstance(decoder_cfg, SingleSelectiveDecoderConfig):
             decoder = SingleSelectiveDecoder(
                 in_features = DefaultFeatureLength,
@@ -138,13 +138,22 @@ def construct_dag(config_dict, model_dict):
     return dag, topological_sort(dag)
 
 
+# 初始化网络参数
+def init_weights(m):
+    if isinstance(m, nn.Linear):
+        torch.nn.init.xavier_uniform_(m.weight, mode='fan_in', nonlinearity='relu')  # Xavier初始化
+        torch.nn.init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')  # Xavier初始化
+        if m.bias is not None:
+            nn.init.zeros_(m.bias)
+
+
 class ComplexNetwork(nn.Module):
     """
     模板化的神经网络
 
     Args:
         network_config (CommanderNetworkConfig): 基于Commander的神经网络配置
-    """  
+    """
 
     def __init__(self, network_config: CommanderNetworkConfig):
         super().__init__()
@@ -159,6 +168,9 @@ class ComplexNetwork(nn.Module):
         self._dag = dag
         self.top_sorted = [it for it in top_generator]
         self._default_source_embeddings = torch.zeros(1)
+        init_weights(self)
+        print("init weight by function: xavier uniform")
+
 
     # @timer_decorator
     def forward(self, input_dict: dict, behavior_action_dict=None, training=False):
@@ -249,9 +261,6 @@ class ComplexNetwork(nn.Module):
         return None
 
     def log_probs(self, logits_dict, action_dict, decoder_mask):
-        """
-        J(θ)关于θ的梯度, 等价于 logp * R的梯度在πθ下的期望
-        """
         log_prob_dict = {}
         for action_name, action in action_dict.items():
             decoder = self.sub_model_dict[action_name]
@@ -299,4 +308,3 @@ class ComplexNetwork(nn.Module):
     #             encoder_output_list, initial_state=hidden_state, training=training
     #         )
     #     return aggregator_output, aggregator_state
-

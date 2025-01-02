@@ -3,9 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def lfPPO(old_log_prob, log_prob, advantage, old_value, value, target_value, entropy):
-    pass
-
 class PPOLoss(nn.Module):
     def __init__(self, clip_epsilon=0.2, value_clip=5, value_coef=1, entropy_coef=0.01):
         """
@@ -51,24 +48,35 @@ class PPOLoss(nn.Module):
         # 计算 surrogate loss
         ratio =  torch.exp(log_prob - old_log_prob)
         clipped_ratio = torch.clamp(ratio, 1 - self._clip_epsilon, 1 + self._clip_epsilon)
-        surrogate_loss = -torch.min(ratio * advantage, clipped_ratio * advantage)
+
+        policy_loss = advantage * ratio
+        policy_loss_clip = advantage * clipped_ratio
+        surrogate_loss = -torch.min(policy_loss, policy_loss_clip)
         policy_loss = surrogate_loss.mean()
 
-        clipped_mask = (- ratio * advantage != surrogate_loss).float()
-
+        clipped_mask = (policy_loss != surrogate_loss).float()
+        clipped_fraction = clipped_mask.mean()
         # 裁剪值函数预测值
         # 此处的clip是希望避免value的更新太激进
         # v_old, -> v_target ; 如果v_pred 在两者之间, 且v_pred的距和v_old的距离已经超过clip，则需要将其进行clip 这个时候 clip loss > pred loss
-        value_pred_clip = old_value + torch.clamp(value - old_value, -self._value_clip, self._value_clip)
+        value_pred_clip = torch.clamp(value, old_value - self._value_clip, old_value + self._value_clip)
+
         value_loss1 = (value - target_value).pow(2)
         value_loss2 = (value_pred_clip - target_value).pow(2)
-        clipped_loss = torch.max(value_loss1, value_loss2)
-        value_loss = 0.5 * clipped_loss.mean()
-
+        value_loss = 0.5 * torch.max(value_loss1, value_loss2).mean()
         value_loss = self._value_coef * value_loss
+
+
+        # value_loss = self._value_coef * 0.5 * nn.functional.mse_loss(value_pred_clip, target_value)
+
+
         entropy_loss = - self._entropy_coef * entropy
         loss = policy_loss + value_loss + entropy_loss
-        return loss, policy_loss, value_loss, entropy_loss, ratio, clipped_mask
+
+        with torch.no_grad():
+            log_ratio = log_prob - old_log_prob
+            approx_kl_div = torch.mean((torch.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
+        return loss, policy_loss, value_loss, entropy_loss, ratio, clipped_fraction
 
 
 def test():

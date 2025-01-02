@@ -31,39 +31,45 @@ def trans2tensor(nested_structure):
     return tree.map_structure(lambda x: torch.from_numpy(x).cuda(), nested_structure)
 
 class LocalMaster:
-    def __init__(self, flow_config: Dict, model_name: str, builder):
+    def __init__(self, flow_config: Dict):
         self.predictor = PredictorClient("localhost", 50051, False)
-        self.actor = Actor(env_num=4, flow_config=flow_config)
-        self.learner = LocalLearner(flow_config, model_name, builder)
-        self.batch_size = 2048
+        self.actor = Actor(env_num=1, flow_config=flow_config)
+        self.learner = LocalLearner(flow_config)
+        self.batch_size = 8192
         self.train_step = 0
 
     def run(self):
         self.actor.start_sampling()
-        weights = self.learner.get_weights()
-        self.learner.flow_model.save_weights()
-        self.predictor.update_weight("atari_model", weights)
+        for model_name in self.learner.model_names:
+            weights = self.learner.get_weights(model_name)
+            self.predictor.update_weight(model_name, weights)
+            self.learner.flow_model_dic[model_name].save_weights()
+
+        def wrapper(datas, mini_batch):
+            t = mini_batch
+            while t <= len(datas):
+                yield datas_prefix(datas[t-mini_batch: t], mini_batch)
+                t += mini_batch
 
         while True:
             self.train_step += 1
             datas = self.actor.get_batch(self.batch_size)
-
             for epoch in range(10):
-                train_datas = datas_prefix(datas, self.batch_size//2)
-                self.learner.train(train_datas)
+                random.shuffle(datas)
+                for train_datas in wrapper(datas, 64):
+                    ret = self.learner.train(self.learner.model_names[0], train_datas)
 
-            print(f"train step :{self.train_step}")
-            weights = self.learner.get_weights()
-            self.predictor.update_weight("atari_model", weights)
-            if self.train_step % 50 == 0:
-                self.learner.flow_model.save_weights()
+            print(f"train step: {self.train_step}")
+            for model_name in self.learner.model_names:
+                weights = self.learner.get_weights(model_name)
+                self.predictor.update_weight(model_name, weights)
+                if self.train_step % 2 == 0:
+                    self.learner.flow_model_dic[model_name].save_weights()
 
-
-def main():
+def main(flow_config):
     import multiprocessing
     multiprocessing.set_start_method('spawn')
-    from hyuRL.example.atari.entry import flow_config, builder
-    master = LocalMaster(flow_config, 'atari_model', builder)
+    master = LocalMaster(flow_config)
     master.run()
 
 def fix_print():
@@ -80,5 +86,15 @@ def fix_print():
 
 
 if __name__ == '__main__':
+    import torch
+    import numpy as np
+    import random
+
+    # 设置随机种子
+    seed = 42
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
     fix_print()
-    main()
+    from hyuRL.src.flow.local.env_config import flow_config
+    main(flow_config)

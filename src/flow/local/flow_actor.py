@@ -28,12 +28,12 @@ class SingleActor:
         self.data_size = data_size
 
         self.predictor: PredictorClient = PredictorClient("localhost", 50051)
-        self.fragment_size = 128
+        self.fragment_size = 256
         self.flow_config = flow_config
         self.env_desc = env_desc
 
     async def run(self):
-        await asyncio.gather(*[self.start_one_task(idx) for idx in range(1)])
+        await asyncio.gather(*[self.start_one_task(idx) for idx in range(4)])
 
     async def start_one_task(self, idx):
         self.env_desc.environment_id_on_this_task += idx
@@ -53,29 +53,27 @@ class SingleActor:
                     await asyncio.sleep(1)
                 episode_done = False if state_dict else True
                 if episode_done:
-                    state_dict = {"atari_agent": {"obs": {"reward": 0.0, "done": 1.0}}}
-                    action_dict = {"atari_agent": {"value": 0.0}}
-                    decoder_mask_dict = {"atari_agent": None}
-                    piece = [state_dict, action_dict, decoder_mask_dict]
-                else:
-                    action_dict = {}
-                    for agent_name, state in state_dict.items():
-                        outputs, err = await self.predictor.predict(state)
-                        action_dict[agent_name] = outputs
+                    self.total_rewards.append(total_reward)
+                    break
+                action_dict = {}
+                for agent_name, state in state_dict.items():
+                    outputs, err = await self.predictor.predict(state)
+                    action_dict[agent_name] = outputs
 
-                    decoder_mask_dict = {
-                        agent_name : flow_env.step(agent_name, agent_command_dict)
-                        for agent_name, agent_command_dict in action_dict.items()
-                    }
-                    nstate_dict: Dict[str, Dict[str, Any]] = flow_env.observe()
-                    piece = [state_dict, action_dict, decoder_mask_dict]
+                decoder_mask_dict = {
+                    agent_name : flow_env.step(agent_name, agent_command_dict)
+                    for agent_name, agent_command_dict in action_dict.items()
+                }
+                nstate_dict: Dict[str, Dict[str, Any]] = flow_env.observe()
+                piece = [state_dict, action_dict, decoder_mask_dict]
+                episode_done = False if nstate_dict else True
 
+                for agent_name in state_dict.keys():
+                    agent_piece = [piece[0][agent_name]['obs'], piece[1][agent_name], piece[2][agent_name]]
+                    fragments[agent_name].append(agent_piece)
 
-                    for agent_name in state_dict.keys():
-                        agent_piece = [piece[0][agent_name]['obs'], piece[1][agent_name], piece[2][agent_name]]
-                        fragments[agent_name].append(agent_piece)
-
-                total_reward += state_dict['atari_agent']["obs"]['reward']
+                for agent_name in state_dict.keys():
+                    total_reward += state_dict[agent_name]["obs"]['reward']
 
                 for agent_name in state_dict.keys():
                     agent_fragments = fragments[agent_name]
@@ -90,9 +88,6 @@ class SingleActor:
                             agent_piece = [piece[0][agent_name]['obs'], piece[1][agent_name], piece[2][agent_name]]
                             fragments[agent_name].append(agent_piece)
 
-                if episode_done:
-                    self.total_rewards.append(total_reward)
-                    break
                 state_dict = nstate_dict
 
 class Actor:

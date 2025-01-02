@@ -24,7 +24,7 @@ class SingleActor:
         self.sampling_flag = sampling_flag
         self.datas = datas
         self.data_size = data_size
-        
+
         self.predictor: PredictorClient = PredictorClient("localhost", 50051)
         self.fragment_size = 32
         self.flow_config = flow_config
@@ -51,18 +51,18 @@ class SingleActor:
                 # while self.sampling_flag.value == 0:
                 #     await asyncio.sleep(1)
                 episode_done = False if state_dict else True
-                logp = 0 
+                logp = 0
                 if not state_dict:
                     piece = (None, None, 0, None, None, 1.0, 0.0, None)
                 else:
                     outputs, err = await self.predictor.predict(state_dict['cpdemo']['obs'])
                     action_dict = {"cpdemo": outputs}
                     decoder_mask_dict = {
-                        agent_name : flow_env.step(agent_name, agent_command_dict) 
-                        for agent_name, agent_command_dict in action_dict.items() 
+                        agent_name : flow_env.step(agent_name, agent_command_dict)
+                        for agent_name, agent_command_dict in action_dict.items()
                     }
                     nstate_dict: Dict[str, Dict[str, Any]] = flow_env.observe()
-                    piece = (state_dict['cpdemo']['obs'], action_dict['cpdemo']["action"], 
+                    piece = (state_dict['cpdemo']['obs'], action_dict['cpdemo']["action"],
                         state_dict['cpdemo']['obs']['reward'], logp, decoder_mask_dict['cpdemo']['decoder_mask'],
                         state_dict['cpdemo']['obs']['done'], action_dict['cpdemo']["value"], action_dict['cpdemo']["logits"])
 
@@ -118,11 +118,11 @@ class Actor:
         sample_args = {
             "class": SingleActor,
             "params": {
-                "total_rewards": self.total_rewards, 
+                "total_rewards": self.total_rewards,
                 "datas": self.datas,
-                "data_size": self.data_size, 
-                "sampling_flag": self.sampling_flag, 
-                "flow_config": self.flow_config, 
+                "data_size": self.data_size,
+                "sampling_flag": self.sampling_flag,
+                "flow_config": self.flow_config,
             },
         }
         for idx in range(self.env_num):

@@ -237,6 +237,30 @@ def main(flow_config, builder):
     print("prepare to server")
     asyncio.run(serve(name2model))
 
+def fix_print():
+    import builtins, os
+    origin_print = builtins.print
+    def custom_print(*args, **kwargs):
+        import datetime
+        import inspect
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        caller = inspect.getframeinfo(inspect.stack()[1][0])
+        prefix = f"[{timestamp}] [{os.path.basename(caller.filename)}:{caller.lineno}]"
+        origin_print(prefix, *args, **kwargs)
+    builtins.print = custom_print
+
+
 if __name__ == '__main__':
-    from hyuRL.example.atari.entry import flow_config, builder
-    main(flow_config, builder)
+    fix_print()
+    import torch
+    import numpy as np
+    import random
+
+    # 设置随机种子
+    seed = 42
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+
+    from hyuRL.src.flow.local.env_config import flow_config
+    main(flow_config, flow_config['builder'])

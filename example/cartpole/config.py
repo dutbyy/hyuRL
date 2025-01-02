@@ -10,9 +10,10 @@ from drill.pipeline import AgentPipeline, HandlerSpecies
 network_cfg = CommanderNetworkConfig(
     encoders=[
         CommonEncoderConfig(
+            hidden_layer_sizes=[32],
             feature_set=CommonFeatureSet(
                 name="common", feature_dict={"raw": VectorFeature(4)}
-            )
+            ),
         ),
     ],
     decoders=[
@@ -61,8 +62,6 @@ agents = {"cpdemo": {"model": "cp_model", "pipeline": "cp_pipeline"}}
 env = {
     "class": CartpoleEnv,
     "params": {
-        # "id": "CartPole-v0",
-        # "max_episode_steps": 500,
     },
 }
 

@@ -1,5 +1,5 @@
 
-import gym
+import gymnasium
 import numpy as np
 from drill.pipeline.interface import ObsData, ActionData
 from drill import summary
@@ -22,7 +22,7 @@ def getLogger(env_id):
 
 class CartpoleEnv:
     def __init__(self, env_id, extra_info):
-        self.env = gym.make("CartPole-v1")
+        self.env = gymnasium.make("CartPole-v1")
         self.agent_names = ["cpdemo"]
         self.logger = getLogger(env_id)
         self.hist_rewards = []
@@ -86,4 +86,3 @@ class PipelineImplement:
     def action_handler(action_data:ActionData, history):
         action_data.action_mask = {k: np.ones(1) for k in action_data.action}
         return action_data
-

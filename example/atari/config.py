@@ -12,14 +12,14 @@ network_cfg = CommanderNetworkConfig(
         SpatialEncoderConfig(
             channel_num = 4,
             down_samples = [
-                (16, 4, 2, 'same'),
-                # (32, 4, 2, 'same'),
-                # (256, 11, 1, 'valid'),
+                (32, 8, 4, 0),
+                (64, 4, 2, 0),
+                (64, 3, 1, 0),
             ],
             res_block_num = 0,
             feature_set=SpatialFeatureSet(
                 name="common",
-                shape=[64, 64],
+                shape=[84, 84],
                 feature_dict={"raw": VectorFeature(4)}
             )
         ),
@@ -73,9 +73,8 @@ env = {
         "atari_info": {
             "atari_env_args" : {
                 "id": "ALE/BeamRider-v5",
-                "max_episode_steps": 10000,
             },
-            "image_dim": 64,
+            "image_dim": 84,
             "agent_names": list(agents.keys())
         }
 

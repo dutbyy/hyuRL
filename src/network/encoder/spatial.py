@@ -47,7 +47,7 @@ class SpatialEncoder(Encoder):
         `output_size` (int):        SpatialEncoder 输出的特征长度
         `down_samples` (List[int], optional):   None or [filters, kernel_size, strides, padding. Defaults to None.
         `res_block_num` (int, optional):  残差块的数量. Defaults to 4.
-        
+
     `Shape`:
         - `Input`:  [batch, height, width, in_feature]
         - `Output`: [batch, output_size]
@@ -76,22 +76,21 @@ class SpatialEncoder(Encoder):
         layers.append(nn.ReLU())
         layers.append(Permute(0, 3, 1, 2))
         pre_shape = in_shape
+        print(f"pre_shape is {pre_shape}")
         if down_samples:
             for filters, kernel_size, strides, padding in down_samples:
                 if padding == 'same':
                     out_shape = [math.ceil(it/strides) for it in pre_shape]
                     padded_shape = [int(it*strides -1 + kernel_size) for it in out_shape]
-                    # out_shape0 = int(math.ceil(pre_shape[0])/strides) * strides 
-                    # out_shape1 = int(math.ceil(pre_shape[0])/strides) * strides
                     padding = [ (p1-p2)//2 for p1, p2 in zip(padded_shape, pre_shape)]
                     pre_shape = out_shape
-                elif padding == 'valid':
-                    pre_shape = [pre_shape[0]//strides + 1 - kernel_size, pre_shape[1]//strides + 1 - kernel_size]
+                elif padding == 'valid' or padding == 0:
+                    pre_shape = [(pre_shape[0]- kernel_size)//strides + 1 , (pre_shape[1]-kernel_size)//strides + 1 ]
+                    print(f"strides is {strides} pre_shape is {pre_shape}")
                 layers.append(
                     nn.Conv2d(channel_num, filters, kernel_size, strides, padding)
                 )
                 layers.append(nn.ReLU())
-                channel_num = filters
                 channel_num = filters
         if res_block_num:
             for _ in range(res_block_num):
@@ -122,4 +121,3 @@ class SpatialEncoder(Encoder):
         """
 
         return self._net_sequence(inputs), None
-
