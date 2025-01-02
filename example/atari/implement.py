@@ -28,7 +28,6 @@ class GymEnv:
     def __init__(self, env_id, atari_info, extra_info):
         atari_env_args = atari_info.get("atari_env_args")
         dim = atari_info.get("image_dim", 64)
-        # self.env = wrap_deepmind(gym.make(env_name, max_episode_steps=10000), dim=64)
         self.env = wrap_deepmind(gym.make(**atari_env_args), dim=dim)
 
         self.agent_names = atari_info.get("agent_names", [])
@@ -91,4 +90,3 @@ class PipelineImplement:
     def action_handler(action_data:ActionData, history):
         action_data.action_mask = {k: np.ones(1) for k in action_data.action}
         return action_data
-

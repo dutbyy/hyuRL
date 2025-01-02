@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from hyuRL.src.flow.drill_plugin.interface.flow_model import FlowModelPPOSync as FlowModelPPO
-from hyuRL.src.flow.drill_plugin.interface.flow_env import FlowEnvImp as FlowEnvPPO
 import numpy as np
 from typing import Dict
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, List, Union
-import torch
 
 
 class EnvDescribe:
@@ -33,16 +30,18 @@ add_batch = lambda input_dict : {
 }
 
 
-def init_env(builder, env_id=1):
+def init_env(flow_config, env_id=1):
+    builder, flow_env_class = flow_config['builder'], flow_config['algorithm']['flow_model']
     desc = EnvDescribe(builder)
     desc.environment_id_on_this_node = env_id
     desc.environment_creator_user_args["episode_mode"] = True
-    flow_env = FlowEnvPPO(desc)
+    flow_env = flow_env_class(desc)
     return flow_env
 
-def init_model(builder, model_path_dict={}):
+def init_model(flow_config, model_path_dict={}):
+    builder, flow_model_class = flow_config['builder'], flow_config['algorithm']['flow_model']
     model_dict = {
-        model_name: FlowModelPPO(model_name, builder)
+        model_name: flow_model_class(model_name, builder)
         for model_name in builder.model_names
     }
     print(f"model_path_dict is {model_path_dict}")
@@ -161,7 +160,7 @@ def inference(flow_env, name2model, episode_num=10):
 
             for agent_name, state in states.items():
                 if not state['obs']: continue
-                flow_model:FlowModelPPO = name2model.get(agent_name, None)
+                flow_model = name2model.get(agent_name, None)
                 model_name = flow_model._model_name
                 model_to_agent_states[model_name][agent_name] = state['obs']
                 model_name2model[model_name] = flow_model

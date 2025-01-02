@@ -11,9 +11,9 @@ flow_config = {
             'training_models': [
                 {
                     'model_name': 'atari_model',
-                    'fragment_size': 512,
+                    'fragment_size': 256,
                     'replay_size': 1,
-                    'sample_batch_size': 4096 * 4,
+                    'sample_batch_size': 1024,
                     'max_data_reuse': 2,
                     'putback_replays': False,
                     'sample_mode': "LIFO",
