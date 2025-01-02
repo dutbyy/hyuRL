@@ -1,22 +1,15 @@
 from __future__ import annotations
 
-from importlib.metadata import distribution
-from typing import List, Tuple
 
 import numpy as np
 import torch
 from torch import nn
 from torch.distributions import Categorical
+from typing import List, Tuple
 
-# from .decoder import Decoder
-# from ..layer.attention import attention_score_model
 
 from hyuRL.src.network.decoder.decoder import Decoder
 from hyuRL.src.network.layer.attention import attention_score_model
-
-
-import torch
-import torch.nn as nn
 
 
 class MeanMax(nn.Module):
@@ -156,4 +149,3 @@ if __name__ == "__main__":
     print(logits.shape)
     print(behavior_action.shape)
     print(auto_regressive_embedding.shape)
-    

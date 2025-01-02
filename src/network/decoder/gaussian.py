@@ -1,7 +1,8 @@
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.distributions import Normal
-from .decoder import Decoder
+
+from hyuRL.src.network.decoder.decoder import Decoder
 
 class GaussianDecoder(Decoder):
     """连续动作空间
@@ -10,7 +11,7 @@ class GaussianDecoder(Decoder):
         n (_type_): 动作个数
         hidden_layer_sizes (_type_): 隐藏层大小列表
         activation (str, optional): 激活函数. Defaults to 'relu'.
-    """        
+    """
     def __init__(self, n, in_features, hidden_layer_sizes, activation='relu'):
         super().__init__()
         # 动作数量
@@ -44,7 +45,7 @@ class GaussianDecoder(Decoder):
         distribution = Normal(mu, std)
 
         if behavior_action is None:
-            # behavior_action = distribution.sample() 
+            # behavior_action = distribution.sample()
             behavior_action = distribution.sample().detach()
         # 获取行为动作的嵌入表示
         behavior_action_embedding = self.action_embedding(behavior_action)

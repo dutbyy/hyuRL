@@ -1,15 +1,13 @@
 from __future__ import annotations
+
 import torch
 import numpy as np
 from torch import nn
 from torch.distributions import Categorical
 from typing import List, Tuple
 
-from .decoder import Decoder
-from ..layer.attention import attention_score_model
-
-import torch
-import torch.nn as nn
+from hyuRL.src.network.decoder.decoder import Decoder
+from hyuRL.src.network.layer.attention import attention_score_model
 
 
 class MeanMax(nn.Module):
@@ -42,7 +40,7 @@ class MeanMax(nn.Module):
         return selected_mean_max_embeddings
 
 def get_mask(inputs: torch.Tensor) -> torch.Tensor:
-    # [batch_size, ..., dim] -> [batch_size, ...] 
+    # [batch_size, ..., dim] -> [batch_size, ...]
     max_abs_inputs = torch.max(torch.abs(inputs), dim=-1).values  # (batch_size, seq_len)
     mask = torch.gt(max_abs_inputs, 0.0)  # (batch_size, seq_len)
     mask = mask.to(dtype=torch.float32)  # (batch_size, seq_len)
@@ -61,13 +59,13 @@ def apply_mask(inputs, mask=None, mode="mul"):
 
 class SingleSelectiveDecoder(Decoder):
     """用于处理单个单位选择的解码器
-    
+
     Args:
         in_features (_type_): 输入特征维度
         attention_size (int, optional): 注意力隐藏层大小. Defaults to 64.
-    """  
+    """
     def __init__(self, in_features:int, attention_size: int = 64):
-   
+
         super(SingleSelectiveDecoder, self).__init__()
         self._add_attention = attention_score_model(
             "add", d_q=in_features, d_k=in_features, hidden_size=attention_size
@@ -95,15 +93,15 @@ class SingleSelectiveDecoder(Decoder):
         distribution = self.distribution(logits=logits)
 
         mask = get_mask(source_embeddings)                      # (batch_size, seq_len) 0/1
-        logits = apply_mask(logits, mask, mode="add")           # (batch_size, seq_len) 
+        logits = apply_mask(logits, mask, mode="add")           # (batch_size, seq_len)
 
         if action_mask is not None:
             logits = apply_mask(logits, action_mask, mode="add")
-                    
+
         if behavior_action is None:
             behavior_action:torch.Tensor = distribution.sample()
         behavior_action = behavior_action.long()                                    # (batch_size,)
-        behavior_action_one_hot = nn.functional.one_hot(behavior_action, seq_len)   # (batch_size, seq_len)                                                         
+        behavior_action_one_hot = nn.functional.one_hot(behavior_action, seq_len)   # (batch_size, seq_len)
 
         pooling = MeanMax()
         selected_embedding = pooling(source_embeddings, behavior_action_one_hot)    # (batch_size, in_features * 2)

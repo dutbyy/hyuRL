@@ -1,9 +1,7 @@
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.distributions import Categorical
 
-CommonLayerSize = 128
-from .decoder import Decoder
+from hyuRL.src.network.decoder.decoder import Decoder
 
 
 class CategoricalDecoder(Decoder):
@@ -15,16 +13,8 @@ class CategoricalDecoder(Decoder):
         hidden_layer_sizes (_type_): 隐藏层大小
         activation (str, optional): 激活函数. Defaults to "relu".
         temperature (float, optional): _description_. Defaults to 1.0.
-    """  
+    """
     def __init__(self, in_features, n, hidden_layer_sizes, activation="relu", temperature=1.0):
-        """_summary_
-
-        Args:
-            n (_type_): _description_
-            hidden_layer_sizes (_type_): _description_
-            activation (str, optional): _description_. Defaults to "relu".
-            temperature (float, optional): _description_. Defaults to 1.0.
-        """        
         super().__init__()
         self._n = n
         self._temperature = temperature

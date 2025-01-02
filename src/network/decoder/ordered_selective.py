@@ -10,7 +10,6 @@ import torch.nn.functional as F
 from hyuRL.src.network.layer.distribution import OrderedMultiSelective
 from hyuRL.src.network.decoder.decoder import Decoder, decoder_pooling
 
-# from drill.model.torch.network.decoder import Decoder, decoder_pooling
 from hyuRL.src.network.layer.ptrnet import PointerNetwork, indices_to_binary
 
 
