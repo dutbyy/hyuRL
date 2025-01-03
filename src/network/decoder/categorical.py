@@ -2,7 +2,7 @@ import torch.nn as nn
 from torch.distributions import Categorical
 
 from hyuRL.src.network.decoder.decoder import Decoder
-
+from hyuRL.src.network.layer.active_tool import make_active_layer
 
 class CategoricalDecoder(Decoder):
     """
@@ -24,10 +24,9 @@ class CategoricalDecoder(Decoder):
         # 为后续层添加线性层、ReLU和LayerNorm
         for in_f, out_f in zip(layer_sizes[:-1], layer_sizes[1:]):
             layers.append(nn.Linear(in_f, out_f))
-            if activation == "relu":
-                layers.append(nn.ReLU())
+            layers.append(make_active_layer(activation))
 
-        layers.append(nn.Linear(hidden_layer_sizes[-1], n))
+        layers.append(nn.Linear(layer_sizes[-1], n))
         self._dense_sequence = nn.Sequential(*layers)
         self.embedding_vocabulary = nn.Embedding(self._n, in_features)
 

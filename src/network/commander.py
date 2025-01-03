@@ -142,7 +142,7 @@ def construct_dag(config_dict, model_dict):
 def init_weights(m):
     if isinstance(m, nn.Linear):
         torch.nn.init.xavier_uniform_(m.weight, mode='fan_in', nonlinearity='relu')  # Xavier初始化
-        torch.nn.init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')  # Xavier初始化
+        # torch.nn.init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')  # Xavier初始化
         if m.bias is not None:
             nn.init.zeros_(m.bias)
 

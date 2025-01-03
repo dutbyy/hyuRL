@@ -1,7 +1,8 @@
 import torch
 from torch import nn
 from typing import List, Tuple, Union
-from .encoder import Encoder
+from hyuRL.src.network.encoder.encoder import Encoder
+from hyuRL.src.network.layer.active_tool import make_active_layer
 
 
 def init_weights(m):
@@ -31,7 +32,7 @@ class CommonEncoder(Encoder):
         torch.Size([128, 128])
     """
 
-    def __init__(self, in_features, hidden_layer_sizes: List[int], output_size=256):
+    def __init__(self, in_features, hidden_layer_sizes: List[int], output_size=256, activation='relu'):
 
         super().__init__()
         layers = []
@@ -39,7 +40,7 @@ class CommonEncoder(Encoder):
         # 为后续层添加线性层、ReLU和LayerNorm
         for in_f, out_f in zip(layer_sizes[:-1], layer_sizes[1:]):
             layers.append(nn.Linear(in_f, out_f))
-            layers.append(nn.ReLU())
+            layers.append(make_active_layer(activation))
             layers.append(nn.LayerNorm(out_f))
         self._dense_sequence = nn.Sequential(*layers)
         self._dense_sequence.apply(init_weights)

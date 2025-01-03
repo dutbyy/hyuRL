@@ -16,7 +16,7 @@ class DenseAggregator(Aggregator):
         for in_f, out_f in zip(layer_sizes[:-1], layer_sizes[1:]):
             layers.append(nn.Linear(in_f, out_f))
             layers.append(nn.ReLU())
-        layers.append(nn.Linear(hidden_layer_sizes[-1], output_size))
+        layers.append(nn.Linear(layer_sizes[-1], output_size))
         self._dense_sequence = nn.Sequential(*layers)
 
     def forward(

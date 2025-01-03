@@ -3,6 +3,7 @@ from torch import nn
 from torch.distributions import Normal
 
 from hyuRL.src.network.decoder.decoder import Decoder
+from hyuRL.src.network.layer.active_tool import make_active_layer
 
 class GaussianDecoder(Decoder):
     """连续动作空间
@@ -21,12 +22,9 @@ class GaussianDecoder(Decoder):
         layer_sizes = [in_features] + hidden_layer_sizes
         for in_f, out_f in zip(layer_sizes[:-1], layer_sizes[1:]):
             layers.append(nn.Linear(in_f, out_f))
-            if activation == 'relu':
-                layers.append(nn.ReLU())
-            # 如果需要，可以添加其他激活函数
-            elif activation == 'tanh':
-                layers.append(nn.Tanh())
-        layers.append(nn.Linear(hidden_layer_sizes[-1], n))
+            layers.append(make_active_layer(activation))
+
+        layers.append(nn.Linear(layer_sizes[-1], n))
         self.dense_sequence = nn.Sequential(*layers)
         # 初始化log_std变量
         self.log_std = nn.Parameter(torch.zeros(n, dtype=torch.float32), requires_grad=True)

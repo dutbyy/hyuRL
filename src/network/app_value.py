@@ -5,25 +5,25 @@ CommonLayerSize = 128
 
 class ValueApproximator(nn.Module):
     """可以输出 V(s) 的 value network
-    
+
     Args:
         `in_features (int)`:   输入feature长度.
         `hidden_layer_sizes (List[int])`:   Value network 的隐藏层大小
         `activation (str, optional)`:       激活函数. Defaults to 'relu'.
-    """    
+    """
     def __init__(self, in_features:int, hidden_layer_sizes: List[int], activation='relu'):
-    
-        
+
+
         super().__init__()
         layers = []
-        
-        layer_sizes = [in_features] + hidden_layer_sizes 
+
+        layer_sizes = [in_features] + hidden_layer_sizes
         # 为后续层添加线性层、ReLU和LayerNorm
         for in_f, out_f in zip(layer_sizes[:-1], layer_sizes[1:]):
             layers.append(nn.Linear(in_f, out_f))
             if activation == 'relu':
                 layers.append(nn.ReLU())
-        layers.append(nn.Linear(hidden_layer_sizes[-1], 1))
+        layers.append(nn.Linear(layer_sizes[-1], 1))
         self._dense_sequence = nn.Sequential(*layers)
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:

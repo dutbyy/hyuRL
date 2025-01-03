@@ -72,8 +72,8 @@ class SpatialEncoder(Encoder):
         super().__init__()
         layers = []
 
-        layers.append(nn.Linear(in_features, channel_num))
-        layers.append(nn.ReLU())
+        # layers.append(nn.Linear(in_features, channel_num))
+        # layers.append(nn.ReLU())
         layers.append(Permute(0, 3, 1, 2))
         pre_shape = in_shape
         print(f"pre_shape is {pre_shape}")
