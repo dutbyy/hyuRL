@@ -6,6 +6,7 @@ from hyuRL.src.network.commander import ComplexNetwork
 from hyuRL.src.loss.ppo import PPOLoss
 from hyuRL.src.memory.buffer import Memory
 from typing import Dict, Any
+from torch import nn
 
 def check_gradient_clipping(model, max_grad_norm):
     # 计算梯度范数
@@ -26,11 +27,14 @@ class PPOPolicy:
         self.device = device if (device !='cpu' and torch.cuda.is_available()) else 'cpu'
         print(f"PPOPolciy.device is {self.device}")
         self.trainning = trainning
-        self._network = ComplexNetwork(network_config)
+        if issubclass(network_config, nn.Module):
+            self._network = network_config()
+        else:
+            self._network = ComplexNetwork(network_config)
         self._network.to(self.device)
         self._optimizer = torch.optim.Adam(self._network.parameters(), lr=3e-4)
         self._loss_fn = PPOLoss(clip_epsilon=0.2, entropy_coef=0.0)
-        self.max_grad_norm = 0.5
+        self.max_grad_norm = 1.0
         self.memory = Memory()
 
     def train_mode(self):
