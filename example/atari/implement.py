@@ -7,6 +7,7 @@ from drill.pipeline.interface import ObsData, ActionData
 from drill import summary
 import logging
 from .atari_wrappers import wrap_deepmind
+from stable_baselines3.common.env_util import make_atari_env
 
 def getLogger(env_id):
     log_name = env_id if isinstance(env_id, str) else f"env-{env_id}"
@@ -28,7 +29,10 @@ class GymEnv:
     def __init__(self, env_id, atari_info, extra_info):
         atari_env_args = atari_info.get("atari_env_args")
         dim = atari_info.get("image_dim", 64)
-        self.env = wrap_deepmind(gym.make(**atari_env_args), dim=dim)
+        # self.env = wrap_deepmind(gym.make(**atari_env_args), dim=dim, framestack=False)
+        # self.env = wrap_deepmind(gym.make(**atari_env_args), dim=dim)
+        self.env = make_atari_env('ALE/BeamRider-v5', n_envs=1, seed=0)
+
 
         self.agent_names = atari_info.get("agent_names", [])
         self.logger = getLogger(env_id)
@@ -37,10 +41,10 @@ class GymEnv:
     def reset(self):
         self.total_reward = 0
         self.step_num = 0
-        raw_obs, info= self.env.reset()
+        raw_obs = self.env.reset()
         return {
             agent_name: ObsData(
-                obs = raw_obs,
+                obs = raw_obs.squeeze(0) / 255.0,
                 extra_info_dict = {
                     "reward": 0.0,
                 },
@@ -53,8 +57,9 @@ class GymEnv:
         mean = lambda x : sum(x)/len(x)
         self.step_num += 1
         action = command_dict[self.agent_names[0]]
-        raw_obs, reward, terminated, truncated, info = self.env.step(action=np.array(action['meta_action']).item())
-        self.total_reward += reward
+        raw_obs, reward, terminated, info = self.env.step(actions=np.expand_dims(action['meta_action'], 0))
+        truncated = terminated
+        self.total_reward += reward.item()
         if terminated or truncated:
             summary.average("episode_reward", self.total_reward)
             summary.average("episode_step", self.step_num)
@@ -64,9 +69,10 @@ class GymEnv:
                 self.hist_rewards.clear()
         return {
                 agent_name: ObsData(
-                    obs = raw_obs,
+                    obs = raw_obs.squeeze(0) / 255.0,
                     extra_info_dict= {
-                        "reward": reward,
+                        "reward": reward.item(),
+                        "episode_reward": info[0].get('episode', {}).get('r', 0.0)
                     },
                     agent_name=agent_name
                 )

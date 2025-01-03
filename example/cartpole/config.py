@@ -10,15 +10,17 @@ from drill.pipeline import AgentPipeline, HandlerSpecies
 network_cfg = CommanderNetworkConfig(
     encoders=[
         CommonEncoderConfig(
-            hidden_layer_sizes=[32],
+            hidden_layer_sizes=[],
             feature_set=CommonFeatureSet(
                 name="common", feature_dict={"raw": VectorFeature(4)}
             ),
         ),
     ],
     decoders=[
-        CategoricalDecoderConfig(name="meta_action", n=2),
+        CategoricalDecoderConfig(name="meta_action", n=2, hidden_layer_sizes=[]),
     ],
+    aggregator=DenseAggregatorConfig(hidden_layer_sizes=[]),
+    value=ValueApproximatorConfig(hidden_layer_sizes=[]),
 )
 
 model_config = {

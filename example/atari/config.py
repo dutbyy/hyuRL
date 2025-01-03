@@ -6,11 +6,11 @@ from hyuRL.src.algo.PPOPolicy import PPOPolicy
 from hyuRL.example.atari.implement import GymEnv
 from hyuRL.example.atari.implement import PipelineImplement
 from drill.pipeline import AgentPipeline, HandlerSpecies
-
+from .network import ActorCriticCnn
 network_cfg = CommanderNetworkConfig(
     encoders=[
         SpatialEncoderConfig(
-            channel_num = 4,
+            channel_num = 1,
             down_samples = [
                 (32, 8, 4, 0),
                 (64, 4, 2, 0),
@@ -20,7 +20,7 @@ network_cfg = CommanderNetworkConfig(
             feature_set=SpatialFeatureSet(
                 name="common",
                 shape=[84, 84],
-                feature_dict={"raw": VectorFeature(4)}
+                feature_dict={"raw": VectorFeature(1)}
             )
         ),
     ],
@@ -33,7 +33,8 @@ model_config = {
     "atari_model": {
         "class": PPOPolicy,  # 选用最佳实践推荐的模型，基于ppo的CommanderModel
         "params": {
-            "network_config": network_cfg,  # 神经网络结构
+            # "network_config": network_cfg,  # 神经网络结构
+            "network_config": ActorCriticCnn,
             "device": "cuda",
         },
         "save": {
