@@ -63,6 +63,9 @@ class FlowEnvImp(Environment):
         self._command_dict = None
         self.logger = getLogger(f"FlowEnv-{env_id}")
 
+        self.episode_mode = False
+        self.reseted = None
+
     def reset(self) -> None:
         self.logger.info("calling reset")
         """重置状态，开始一个新的 episode"""
@@ -79,7 +82,7 @@ class FlowEnvImp(Environment):
     def observe(self) -> Dict[str, NestedNDArray]:
 
         # 如果上次的_obs_data 是空的
-        if self._episode_done:
+        if self._episode_done and self.episode_mode:
             return {}
 
         if self._command_dict:
@@ -87,13 +90,19 @@ class FlowEnvImp(Environment):
             self._command_dict.clear()
 
         agent2state, agent2reward = self._pipeline.pre_process(self._obs_data, self._episode_done)
+        episode_done = 1.0 if self._episode_done else 0.0
+        if self._episode_done and not self.episode_mode:
+            self.reseted = sum([agent_data.extra_info_dict['episode_reward'] for name, agent_data in self._obs_data.items()])
+            self.reset()
+            agent2state, _ = self._pipeline.pre_process(self._obs_data, self._episode_done)
+
         for agent_name, agent_state_dict in agent2state.items():
             reward = agent2reward.get(agent_name)
             if isinstance(reward, dict):
                 agent_state_dict[REWARD] = np.array(sum(reward.values()), dtype=np.float32)
             else:
                 agent_state_dict[REWARD] = np.array(reward, dtype=np.float32)
-            agent_state_dict[DONE] = np.array(self._episode_done, dtype=np.float32)
+            agent_state_dict[DONE] = np.array(episode_done, dtype=np.float32)
         observe_return = {
             agent_name: {
                 "obs": agent_state_dict,
@@ -107,6 +116,7 @@ class FlowEnvImp(Environment):
 
 
     def step(self, agent_name, predict_output):
+        # print(f"predict output is {predict_output}")
         self.__update_hidden_state(agent_name, predict_output)
 
         action_data = ActionData(

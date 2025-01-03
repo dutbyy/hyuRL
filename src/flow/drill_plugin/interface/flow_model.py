@@ -93,7 +93,7 @@ class FlowModelPPOSync(flow.Model):
         except Exception as e:
             self.logger.info(f"setstate predict error: {e}")
             raise e
-        
+
         self._model._network.requires_grad_(False)
         self._model._network.eval()
 

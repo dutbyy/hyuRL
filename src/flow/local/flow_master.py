@@ -13,6 +13,9 @@ def datas_prefix(datas, batch_size=1024):
     def dg(demo, origin):
         if isinstance(demo, dict):
             for k, v in demo.items():
+                # print(f"cacl dg {k}")
+                # print( [it[k] for it in origin])
+                # print( [it[k].shape for it in origin])
                 demo[k] = dg(v, [it[k] for it in origin])
         elif isinstance(demo, list):
             for idx, item in enumerate(demo):
@@ -35,7 +38,7 @@ class LocalMaster:
         self.predictor = PredictorClient("localhost", 50051, False)
         self.actor = Actor(env_num=1, flow_config=flow_config)
         self.learner = LocalLearner(flow_config)
-        self.batch_size = 8192
+        self.batch_size = 1024
         self.train_step = 0
 
     def run(self):
@@ -54,11 +57,14 @@ class LocalMaster:
         while True:
             self.train_step += 1
             datas = self.actor.get_batch(self.batch_size)
-            for epoch in range(10):
+            for epoch in range(4):
                 random.shuffle(datas)
-                for train_datas in wrapper(datas, 64):
+                idx = 0
+                for train_datas in wrapper(datas, 128):
+                    idx+=1
+                    print(f"training epoch: {epoch+1} times: {idx}", end='\r', flush=True)
                     ret = self.learner.train(self.learner.model_names[0], train_datas)
-
+            print()
             print(f"train step: {self.train_step}")
             for model_name in self.learner.model_names:
                 weights = self.learner.get_weights(model_name)
@@ -78,7 +84,8 @@ def fix_print():
     def custom_print(*args, **kwargs):
         import datetime
         import inspect
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.datetime.now().strftime("%m-%d %H:%M:%S")
         caller = inspect.getframeinfo(inspect.stack()[1][0])
         prefix = f"[{timestamp}] [{os.path.basename(caller.filename)}:{caller.lineno}]"
         origin_print(prefix, *args, **kwargs)

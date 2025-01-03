@@ -1,6 +1,5 @@
 import pickle
 import gzip
-import dill
 import grpc
 import time
 import asyncio
@@ -63,7 +62,11 @@ def convert_to_batch_state(states):
             sub_states = [s[key] for s in states]
             batch_state_dict[key] = convert_to_batch_state(sub_states)
         else:
-            batch_state_dict[key] = np.stack([s[key] for s in states])
+            try:
+                batch_state_dict[key] = np.stack([s[key] for s in states])
+            except Exception as e:
+                print(f"exception key is {key}")
+                raise e
     return batch_state_dict
 
 
@@ -168,13 +171,15 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
         requests = []
         start_time = None
         while True:
+            await asyncio.sleep(0.001)
             while len(requests) < self.batch_size:
+                print("now is ", len(requests))
                 if len(requests) == 0 or not start_time:
                     start_time = time.time()
                 diff = time.time() - start_time
                 if diff * 1000 < self.timeout:
                     try:
-                        tmp_timeout = 0.9 * (self.timeout/1000 - diff) if len(requests) else 10
+                        tmp_timeout = 0.9 * (self.timeout/1000 - diff) if len(requests) else 1
                         request = await asyncio.wait_for(self._data_queue[model_name].get(), timeout=tmp_timeout)
                         requests.append(request)
                         if len(requests) == 1:
@@ -183,8 +188,8 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
                         pass
                 elif len(requests) > 0:
                     break
-
             def batch_inference(requests):
+                print([it[0]['common'].shape for it in requests])
                 inputs = convert_to_batch_state([it[0] for it in requests])
                 results = self._name2model[model_name].predict(inputs)
                 results = split_outputs(results)
@@ -243,7 +248,8 @@ def fix_print():
     def custom_print(*args, **kwargs):
         import datetime
         import inspect
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.datetime.now().strftime("%m-%d %H:%M:%S")
+        # timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         caller = inspect.getframeinfo(inspect.stack()[1][0])
         prefix = f"[{timestamp}] [{os.path.basename(caller.filename)}:{caller.lineno}]"
         origin_print(prefix, *args, **kwargs)

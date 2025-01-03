@@ -28,7 +28,7 @@ class SingleActor:
         self.data_size = data_size
 
         self.predictor: PredictorClient = PredictorClient("localhost", 50051)
-        self.fragment_size = 256
+        self.fragment_size = 257
         self.flow_config = flow_config
         self.env_desc = env_desc
 
@@ -55,6 +55,10 @@ class SingleActor:
                 if episode_done:
                     self.total_rewards.append(total_reward)
                     break
+                if flow_env.reseted != None:
+                    self.total_rewards.append(flow_env.reseted)
+                    total_reward = 0
+                    flow_env.reseted = None
                 action_dict = {}
                 for agent_name, state in state_dict.items():
                     outputs, err = await self.predictor.predict(state)
@@ -73,7 +77,7 @@ class SingleActor:
                     fragments[agent_name].append(agent_piece)
 
                 for agent_name in state_dict.keys():
-                    total_reward += state_dict[agent_name]["obs"]['reward']
+                    total_reward += state_dict[agent_name]["obs"]['reward'].item()
 
                 for agent_name in state_dict.keys():
                     agent_fragments = fragments[agent_name]
