@@ -9,7 +9,7 @@ from hyuRL.src.network.aggregator import aggregator
 @dataclass
 class NetConfig:
     name: str = ""
-    hidden_layer_sizes: List[int] = field(default_factory = lambda : [512])
+    hidden_layer_sizes: List[int] = field(default_factory = lambda : [])
     dependency: List[str] = None
     def get_name(self):
         return self.name
