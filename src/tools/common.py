@@ -35,6 +35,19 @@ def timer_decorator(func):
 
     return wrapper
 
+def fix_print():
+    import builtins, os
+    origin_print = builtins.print
+    def custom_print(*args, **kwargs):
+        import datetime
+        import inspect
+        timestamp = datetime.datetime.now().strftime("%m-%d %H:%M:%S")
+        # timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        caller = inspect.getframeinfo(inspect.stack()[1][0])
+        prefix = f"[{timestamp}] [{os.path.basename(caller.filename)}:{caller.lineno}]"
+        origin_print(prefix, *args, **kwargs)
+    builtins.print = custom_print
+
 
 # 实现一个单例模式
 class Singleton(type):

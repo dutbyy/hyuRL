@@ -27,6 +27,7 @@ message InferenceRsp {
 message UpdateWeightReq {
     string      model_name = 1;
     bytes       weight = 2;
+    string      extra_msg = 3;
 }
 
 message UpdateWeightRsp {

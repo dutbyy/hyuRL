@@ -1,4 +1,5 @@
 # Copy from ray.rllib, wrap atari environment by deepmind/new_stack
+# https://danieltakeshi.github.io/2016/11/25/frame-skipping-and-preprocessing-for-deep-q-networks-on-atari-2600-games/
 
 from collections import deque
 import gymnasium as gym
@@ -6,11 +7,16 @@ from gymnasium import spaces
 import numpy as np
 from typing import Optional, Union
 
+
 def rgb2gray(img: np.ndarray) -> np.ndarray:
     import cv2
+
     return cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+
+
 def resize(img: np.ndarray, height: int, width: int) -> np.ndarray:
     import cv2
+
     return cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
 
 
@@ -230,6 +236,9 @@ class MonitorEnv(gym.Wrapper):
         self._current_reward += rew
         self._num_steps += 1
         self._total_steps += 1
+        info["episode_reward"] = self._current_reward
+        info["episode_step"] = self._num_steps
+        info["nature_reward"] = rew
         return obs, rew, terminated, truncated, info
 
     def get_episode_rewards(self):
@@ -385,6 +394,7 @@ def wrap_deepmind(env, dim=84, framestack=True, noframeskip=False):
     if "FIRE" in env.unwrapped.get_action_meanings():
         env = FireResetEnv(env)
     env = WarpFrame(env, dim)
+    env = NormalizedImageEnv(env)  # 将像素值归一化到 [0, 1]
     env = ClipRewardEnv(env)  # reward clipping is handled by policy eval
     # 4x image framestacking.
     if framestack is True:

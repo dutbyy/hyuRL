@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15proto/predictor.proto\"8\n\tNumpyList\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1d\n\tnp_arrays\x18\x02 \x03(\x0b\x32\n.NumpyData\"K\n\tNumpyData\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x64type\x18\x02 \x01(\t\x12\x12\n\narray_data\x18\x03 \x01(\x0c\x12\r\n\x05shape\x18\x04 \x03(\x05\"<\n\x0cInferenceReq\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x18\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\n.NumpyList\"_\n\x0cInferenceRsp\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x10\n\x08\x65rr_code\x18\x02 \x01(\x05\x12\x0f\n\x07\x65rr_msg\x18\x03 \x01(\t\x12\x18\n\x04\x64\x61ta\x18\x04 \x01(\x0b\x32\n.NumpyList\"5\n\x0fUpdateWeightReq\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x0e\n\x06weight\x18\x02 \x01(\x0c\"X\n\x0fUpdateWeightRsp\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x0e\n\x06weight\x18\x02 \x01(\x0c\x12\x10\n\x08\x65rr_code\x18\x03 \x01(\x05\x12\x0f\n\x07\x65rr_msg\x18\x04 \x01(\t2q\n\x10PredictorService\x12)\n\tInference\x12\r.InferenceReq\x1a\r.InferenceRsp\x12\x32\n\x0cUpdateWeight\x12\x10.UpdateWeightReq\x1a\x10.UpdateWeightRspb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15proto/predictor.proto\"8\n\tNumpyList\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1d\n\tnp_arrays\x18\x02 \x03(\x0b\x32\n.NumpyData\"K\n\tNumpyData\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05\x64type\x18\x02 \x01(\t\x12\x12\n\narray_data\x18\x03 \x01(\x0c\x12\r\n\x05shape\x18\x04 \x03(\x05\"<\n\x0cInferenceReq\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x18\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\n.NumpyList\"_\n\x0cInferenceRsp\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x10\n\x08\x65rr_code\x18\x02 \x01(\x05\x12\x0f\n\x07\x65rr_msg\x18\x03 \x01(\t\x12\x18\n\x04\x64\x61ta\x18\x04 \x01(\x0b\x32\n.NumpyList\"H\n\x0fUpdateWeightReq\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x0e\n\x06weight\x18\x02 \x01(\x0c\x12\x11\n\textra_msg\x18\x03 \x01(\t\"X\n\x0fUpdateWeightRsp\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x0e\n\x06weight\x18\x02 \x01(\x0c\x12\x10\n\x08\x65rr_code\x18\x03 \x01(\x05\x12\x0f\n\x07\x65rr_msg\x18\x04 \x01(\t2q\n\x10PredictorService\x12)\n\tInference\x12\r.InferenceReq\x1a\r.InferenceRsp\x12\x32\n\x0cUpdateWeight\x12\x10.UpdateWeightReq\x1a\x10.UpdateWeightRspb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -40,9 +40,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_INFERENCERSP']._serialized_start=222
   _globals['_INFERENCERSP']._serialized_end=317
   _globals['_UPDATEWEIGHTREQ']._serialized_start=319
-  _globals['_UPDATEWEIGHTREQ']._serialized_end=372
-  _globals['_UPDATEWEIGHTRSP']._serialized_start=374
-  _globals['_UPDATEWEIGHTRSP']._serialized_end=462
-  _globals['_PREDICTORSERVICE']._serialized_start=464
-  _globals['_PREDICTORSERVICE']._serialized_end=577
+  _globals['_UPDATEWEIGHTREQ']._serialized_end=391
+  _globals['_UPDATEWEIGHTRSP']._serialized_start=393
+  _globals['_UPDATEWEIGHTRSP']._serialized_end=481
+  _globals['_PREDICTORSERVICE']._serialized_start=483
+  _globals['_PREDICTORSERVICE']._serialized_end=596
 # @@protoc_insertion_point(module_scope)

@@ -31,7 +31,7 @@ add_batch = lambda input_dict : {
 
 
 def init_env(flow_config, env_id=1):
-    builder, flow_env_class = flow_config['builder'], flow_config['algorithm']['flow_model']
+    builder, flow_env_class = flow_config['builder'], flow_config['algorithm']['flow_env']
     desc = EnvDescribe(builder)
     desc.environment_id_on_this_node = env_id
     desc.environment_creator_user_args["episode_mode"] = True

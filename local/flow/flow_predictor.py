@@ -120,9 +120,9 @@ class PredictorClient:
         inference_response = await self.stub.Inference(request)
         return common_deserialize(inference_response.data), inference_response.err_code
 
-    def update_weight(self, model_name, weights):
+    def update_weight(self, model_name, weights, msg=""):
         pickle_weight = gzip.compress(pickle.dumps(weights))
-        req = predictor_pb2.UpdateWeightReq(model_name=model_name, weight=pickle_weight)
+        req = predictor_pb2.UpdateWeightReq(model_name=model_name, weight=pickle_weight, extra_msg=msg)
         return self.stub.UpdateWeight(req)
 
 
@@ -151,7 +151,7 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
 
     async def UpdateWeight(self, request, context):
         model_name = request.model_name
-        print(f"Updating weights for model: [{model_name}]")
+        print(f"Updating weights for model: [{model_name}], {request.extra_msg}")
         weights = pickle.loads(gzip.decompress(request.weight))
         flow_model = self._name2model.get(model_name)
 
@@ -173,7 +173,6 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
         while True:
             await asyncio.sleep(0.001)
             while len(requests) < self.batch_size:
-                print("now is ", len(requests))
                 if len(requests) == 0 or not start_time:
                     start_time = time.time()
                 diff = time.time() - start_time
@@ -189,7 +188,6 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
                 elif len(requests) > 0:
                     break
             def batch_inference(requests):
-                print([it[0]['common'].shape for it in requests])
                 inputs = convert_to_batch_state([it[0] for it in requests])
                 results = self._name2model[model_name].predict(inputs)
                 results = split_outputs(results)
@@ -197,14 +195,12 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
                     result = results[idx]
                     if not future.cancelled() and not future.done():
                         future.set_result(result)
-            # print(f"batch infer :{len(requests)}")
             batch_inference(requests)
             start_time = time.time()
             requests = []
 
 
 async def serve(name2model):
-    from concurrent import futures
     server = grpc.aio.server(
         options=[('grpc.max_send_message_length', -1),  # 发送的最大消息长度，-1 表示无限制
         ('grpc.max_receive_message_length', -1)]
@@ -235,38 +231,21 @@ def main(flow_config, builder):
     for model_name in predict_model_names:
         flow_model = flow_config['algorithm']['flow_model'](model_name, builder)
         name2model[model_name] = flow_model
-        ret = flow_model.__getstate__()
-        tmp = pickle.dumps(ret)
-        print(f"try pickle {model_name}")
-
-    print("prepare to server")
+    print("Predictor server starting.")
     asyncio.run(serve(name2model))
-
-def fix_print():
-    import builtins, os
-    origin_print = builtins.print
-    def custom_print(*args, **kwargs):
-        import datetime
-        import inspect
-        timestamp = datetime.datetime.now().strftime("%m-%d %H:%M:%S")
-        # timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        caller = inspect.getframeinfo(inspect.stack()[1][0])
-        prefix = f"[{timestamp}] [{os.path.basename(caller.filename)}:{caller.lineno}]"
-        origin_print(prefix, *args, **kwargs)
-    builtins.print = custom_print
 
 
 if __name__ == '__main__':
+    from hyuRL.src.tools.common import fix_print
     fix_print()
     import torch
     import numpy as np
     import random
-
     # 设置随机种子
     seed = 42
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
 
-    from hyuRL.src.flow.local.env_config import flow_config
+    from hyuRL.local.flow.env_config import flow_config
     main(flow_config, flow_config['builder'])
