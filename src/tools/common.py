@@ -1,5 +1,5 @@
+from collections import defaultdict
 from typing import Dict
-import logging
 
 
 def is_class_dict(class_dict: Dict):
@@ -35,17 +35,22 @@ def timer_decorator(func):
 
     return wrapper
 
+
 def fix_print():
     import builtins, os
+
     origin_print = builtins.print
+
     def custom_print(*args, **kwargs):
         import datetime
         import inspect
+
         timestamp = datetime.datetime.now().strftime("%m-%d %H:%M:%S")
         # timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         caller = inspect.getframeinfo(inspect.stack()[1][0])
         prefix = f"[{timestamp}] [{os.path.basename(caller.filename)}:{caller.lineno}]"
         origin_print(prefix, *args, **kwargs)
+
     builtins.print = custom_print
 
 
@@ -66,3 +71,25 @@ class Singleton(type):
 
     def print_info(self):
         print(f"Infer times: {self.infer_times}")
+
+
+class Summary:
+    _instances = {}
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(Singleton, cls).__new__(cls, *args, **kwargs)
+            cls._instance.load_writer()
+        return cls._instance
+
+    def load_writer(self):
+        from torch.utils.tensorboard import SummaryWriter
+
+        self.writer: SummaryWriter = SummaryWriter("/job/logs/tensorboard")
+        self.step_dict = defaultdict(lambda: 0)
+
+    def add_scaler(self, key, value, global_step=None, wall_time=None):
+        if not global_step:
+            self.step_dict[key] = self.step_dict[key] + 1
+            global_step = self.step_dict[key]
+        self.writer.add_scalar(key, value, global_step, wall_time)
