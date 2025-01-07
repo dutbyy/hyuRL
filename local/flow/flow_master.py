@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Dict
 from copy import deepcopy
+from matplotlib.testing.jpl_units import EpochConverter
 import numpy as np
 import random
 from hyuRL.local.flow.flow_actor import Actor
@@ -18,9 +19,7 @@ def datas_prefix(datas, batch_size=1024):
         if isinstance(demo, dict):
             return {k: recursion(v, [it[k] for it in origin]) for k, v in demo.items()}
         elif isinstance(demo, list):
-            return [
-                recursion(item, [it[i] for it in origin]) for i, item in enumerate(demo)
-            ]
+            return [recursion(item, [it[i] for it in origin]) for i, item in enumerate(demo)]
         elif isinstance(demo, np.ndarray):
             return np.stack(origin, 0)
         else:
@@ -37,11 +36,15 @@ def trans2tensor(nested_structure):
 
 
 class LocalMaster:
-    def __init__(self, flow_config: Dict):
+    def __init__(self, flow_config: Dict, epoch_num=10, sample_size=128, env_num=4, batch_size=64, save_interval=10):
         self.predictor = PredictorClient("localhost", 50051, False)
-        self.actor = Actor(env_num=1, flow_config=flow_config)
+        self.actor = Actor(env_num=4, flow_config=flow_config)
         self.learner = LocalLearner(flow_config)
-        self.batch_size = 2048
+        self.env_num = env_num
+        self.sample_size = sample_size * env_num
+        self.batch_size = batch_size
+        self.epoch_num = epoch_num
+        self.save_interval = save_interval
         self.train_step = 0
 
     def run(self):
@@ -53,31 +56,25 @@ class LocalMaster:
 
         def wrapper(datas, mini_batch):
             t = mini_batch
+            idx = 0
             while t <= len(datas):
-                yield datas_prefix(datas[t - mini_batch : t], mini_batch)
+                yield idx, datas_prefix(datas[t - mini_batch : t], mini_batch)
                 t += mini_batch
+                idx += 1
 
         while True:
             self.train_step += 1
-            datas = self.actor.get_batch(self.batch_size)
-            for epoch in range(8):
+            datas = self.actor.get_batch(self.sample_size)
+            for epoch in range(10):
                 random.shuffle(datas)
-                idx = 0
-                for train_datas in wrapper(datas, 512):
-                    idx += 1
+                for idx, train_datas in wrapper(datas, self.batch_size):
                     self.learner.train(self.learner.model_names[0], train_datas)
-                    print(
-                        f"training step: {self.train_step} epoch: {epoch+1} times: {idx}",
-                        end="\r",
-                        flush=True,
-                    )
+                    print(f"training step: {self.train_step} epoch: {epoch+1} times: {idx}", end="\r", flush=True)
             print()
             for model_name in self.learner.model_names:
                 weights = self.learner.get_weights(model_name)
-                self.predictor.update_weight(
-                    model_name, weights, f"learn_step: {self.train_step}"
-                )
-                if self.train_step % 10 == 0:
+                self.predictor.update_weight(model_name, weights, f"learn_step: {self.train_step}")
+                if self.save_interval and self.train_step % self.save_interval == 0:
                     self.learner.flow_model_dic[model_name].save_weights()
 
 
@@ -90,16 +87,7 @@ def main(flow_config):
 
 
 if __name__ == "__main__":
-    import torch
-    import numpy as np
-    import random
-
-    # 设置随机种子
-    seed = 42
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    fix_print()
     from hyuRL.local.flow.env_config import flow_config
 
+    fix_print()
     main(flow_config)
