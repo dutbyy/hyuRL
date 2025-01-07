@@ -1,41 +1,95 @@
-import timeit
-import torch
-import tree
-from hyuRL.src.network.commander import ComplexNetwork
-# from hyuRL.src.network.complex import ComplexNetwork
-from hyuRL.src.loss.ppo import PPOLoss
-from hyuRL.src.memory.buffer import Memory
-from typing import Dict, Any
+from __future__ import annotations
+from typing import Dict, Any, Union
 from torch import nn
+import torch
+
+from hyuRL.src.network.commander import ComplexNetwork
+from hyuRL.src.api.net.net import CommanderNetworkConfig
+from hyuRL.src.loss.ppo import PPOLoss
+
 
 def check_gradient_clipping(model, max_grad_norm):
     # 计算梯度范数
-    total_norm_before = torch.norm(torch.stack([torch.norm(p.grad) for p in model.parameters() if p.grad is not None]), 2.0)
+    total_norm_before = torch.norm(
+        torch.stack(
+            [torch.norm(p.grad) for p in model.parameters() if p.grad is not None]
+        ),
+        2.0,
+    )
 
     # 执行梯度裁剪
     torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
 
     # 计算裁剪后的梯度范数
-    total_norm_after = torch.norm(torch.stack([torch.norm(p.grad) for p in model.parameters() if p.grad is not None]), 2.0)
+    total_norm_after = torch.norm(
+        torch.stack(
+            [torch.norm(p.grad) for p in model.parameters() if p.grad is not None]
+        ),
+        2.0,
+    )
 
     # 返回裁剪信息
     return total_norm_before, total_norm_after
 
 
 class PPOPolicy:
-    def __init__(self, network_config, trainning=False, device="cpu"):
-        self.device = device if (device !='cpu' and torch.cuda.is_available()) else 'cpu'
+    """PPO策略
+    Args:
+        network_config (Union[CommanderNetworkConfig, nn.Module]): 决策网络的结构配置
+        device (str, optional): 网络使用设备 cuda or cpu. Defaults to "cpu".
+        trainning (bool, optional): 是否训练. Defaults to False.
+        learning_rate (float, optional): adam的学习率. Defaults to 2.5e-4.
+        eps (float, optional): adam的eps. Defaults to 1e-8.
+        clip_epsilon (float, optional): ppo clip参数. Defaults to 0.2.
+        value_clip (float, optional): value clip, 避免单次reward-td太大导致梯度爆炸. Defaults to 5.0.
+        value_coef (float, optional): value loss 权重. Defaults to 0.5.
+        entropy_coef (float, optional): entropy loss 权重. Defaults to 0.01.
+        max_grad_norm (float, optional): 梯度裁剪最大值. Defaults to 0.5.
+        adv_norm (bool, optional): 是否其实用 advantage normalize. Defaults to False.
+
+    Raises:
+        Exception: _description_
+    """
+
+    def __init__(
+        self,
+        network_config: Union[CommanderNetworkConfig, nn.Module],
+        device: str = "cpu",
+        trainning: bool = False,
+        learning_rate: float = 2.5e-4,
+        eps: float = 1e-8,
+        clip_epsilon: float = 0.2,
+        value_clip: float = 5.0,
+        value_coef: float = 0.5,
+        entropy_coef: float = 0.01,
+        max_grad_norm: float = 0.5,
+        adv_norm: bool = False,
+    ):
+
+        self.device = (
+            device if (device != "cpu" and torch.cuda.is_available()) else "cpu"
+        )
         print(f"PPOPolciy.device is {self.device}")
         self.trainning = trainning
-        if issubclass(network_config, nn.Module):
+        self.advantage_normalize = adv_norm
+        if isinstance(network_config, CommanderNetworkConfig):
+            self._network = ComplexNetwork(network_config)
+        elif issubclass(network_config, nn.Module):
             self._network = network_config()
         else:
-            self._network = ComplexNetwork(network_config)
+            raise Exception(f"Unsupport Network Config. [{network_config}] ")
+
         self._network.to(self.device)
-        self._optimizer = torch.optim.Adam(self._network.parameters(), lr=3e-4)
-        self._loss_fn = PPOLoss(clip_epsilon=0.2, entropy_coef=0.0)
-        self.max_grad_norm = 0.5
-        self.memory = Memory()
+        self._optimizer = torch.optim.Adam(
+            self._network.parameters(), lr=learning_rate, eps=eps
+        )
+        self._loss_fn = PPOLoss(
+            clip_epsilon=clip_epsilon,
+            value_clip=value_clip,
+            value_coef=value_coef,
+            entropy_coef=entropy_coef,
+        )
+        self.max_grad_norm = max_grad_norm
 
     def train_mode(self):
         self._network.train()
@@ -55,8 +109,10 @@ class PPOPolicy:
         behavior_mask_dict = training_data.get("decoder_mask")
         behavior_values = training_data.get("value")
         advantages = training_data.get("advantage")
-        target_value = advantages + behavior_values
+        if self.advantage_normalize:
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
+        target_value = advantages + behavior_values
 
         with torch.no_grad():
             old_logp_dict_running = self._network.log_probs(
@@ -90,15 +146,10 @@ class PPOPolicy:
             )
         )
         self._optimizer.zero_grad()
-        # print(f"loss: {loss}  policy_loss: {policy_loss} value_loss: {value_loss} ")
         loss.backward()
-        total_norm_before, total_norm_after = check_gradient_clipping(self._network, self.max_grad_norm)
-        # if total_norm_before > self.max_grad_norm:
-        #     print(f"发生了梯度裁剪: 裁剪前范数 = {total_norm_before}, 裁剪后范数 = {total_norm_after}")
-        # else:
-        #     print(f"未发生梯度裁剪: 梯度范数 = {total_norm_before}")
-
-        # torch.nn.utils.clip_grad_norm_(self._network.parameters(), 0.5)
+        total_norm_before, total_norm_after = check_gradient_clipping(
+            self._network, self.max_grad_norm
+        )
         self._optimizer.step()
         return {
             "loss": loss.detach(),
@@ -106,5 +157,4 @@ class PPOPolicy:
             "value_loss": value_loss.detach(),
             "entropy": entropy.detach(),
             "clipped_fraction": clipped_fraction.detach(),
-            # "ratio_diff": ratio,
         }
