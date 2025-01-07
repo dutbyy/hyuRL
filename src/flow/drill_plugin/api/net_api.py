@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from flatbuffers.flexbuffers import Object
-
-BaseModel = Object
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Any
 from hyuRL.src.feature.feature_set import FeatureSet
@@ -10,7 +7,7 @@ from hyuRL.src.network.aggregator import aggregator
 
 
 @dataclass
-class NetConfig(BaseModel):
+class NetConfig:
     name: str = ""
     hidden_layer_sizes: List[int] = field(default_factory=lambda: [256, 128])
 
@@ -102,7 +99,7 @@ class DenseAggregatorConfig(AggregatorConfig):
 
 
 @dataclass
-class CommanderNetworkConfig(BaseModel):
+class CommanderNetworkConfig:
     encoders: List[EncoderConfig]
     decoders: List[DecoderConfig]
     aggregator: AggregatorConfig = DenseAggregatorConfig()
