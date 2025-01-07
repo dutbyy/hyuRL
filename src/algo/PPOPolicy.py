@@ -6,7 +6,7 @@ import torch
 from hyuRL.src.network.commander import ComplexNetwork
 from hyuRL.src.api.net.net import CommanderNetworkConfig
 from hyuRL.src.loss.ppo import PPOLoss
-
+from hyuRL.src.tools.common import construct
 
 def check_gradient_clipping(model, max_grad_norm):
     # 计算梯度范数
@@ -76,6 +76,8 @@ class PPOPolicy:
             self._network = ComplexNetwork(network_config)
         elif issubclass(network_config, nn.Module):
             self._network = network_config()
+        elif isinstance(network_config, Dict):
+            self._network = construct(network_config)
         else:
             raise Exception(f"Unsupport Network Config. [{network_config}] ")
 
