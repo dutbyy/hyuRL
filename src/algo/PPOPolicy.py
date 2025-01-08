@@ -74,12 +74,12 @@ class PPOPolicy:
         self.advantage_normalize = adv_norm
         if isinstance(network_config, CommanderNetworkConfig):
             self._network = ComplexNetwork(network_config)
-        elif issubclass(network_config, nn.Module):
-            self._network = network_config()
         elif isinstance(network_config, Dict):
             self._network = construct(network_config)
+        elif isinstance(network_config, type) and issubclass(network_config, nn.Module):
+            self._network = network_config()
         else:
-            raise Exception(f"Unsupport Network Config. [{network_config}] ")
+            raise TypeError(f"Unsupport Network Config. [{network_config}] ")
 
         self._network.to(self.device)
         self._optimizer = torch.optim.Adam(
