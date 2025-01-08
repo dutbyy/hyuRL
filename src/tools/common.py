@@ -1,5 +1,6 @@
 from collections import defaultdict
 from typing import Dict
+from torch.utils.tensorboard import SummaryWriter
 
 
 def is_class_dict(class_dict: Dict):
@@ -74,22 +75,12 @@ class Singleton(type):
 
 
 class Summary:
-    _instances = {}
+    step_dict = defaultdict(lambda: 0)
+    writer:  SummaryWriter = SummaryWriter("/job/logs/tensorboard/local_flow")
 
-    def __new__(cls, *args, **kwargs):
-        if cls._instance is None:
-            cls._instance = super(Singleton, cls).__new__(cls, *args, **kwargs)
-            cls._instance.load_writer()
-        return cls._instance
-
-    def load_writer(self):
-        from torch.utils.tensorboard import SummaryWriter
-
-        self.writer: SummaryWriter = SummaryWriter("/job/logs/tensorboard")
-        self.step_dict = defaultdict(lambda: 0)
-
-    def add_scaler(self, key, value, global_step=None, wall_time=None):
+    @classmethod
+    def add_scaler(cls, key, value, global_step=None, wall_time=None):
         if not global_step:
-            self.step_dict[key] = self.step_dict[key] + 1
-            global_step = self.step_dict[key]
-        self.writer.add_scalar(key, value, global_step, wall_time)
+            cls.step_dict[key] = cls.step_dict[key] + 1
+            global_step = cls.step_dict[key]
+        cls.writer.add_scalar(key, value, global_step, wall_time)
