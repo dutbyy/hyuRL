@@ -1,19 +1,18 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class PPOLoss(nn.Module):
-    def __init__(self, clip_epsilon=0.2, value_clip=5, value_coef=1, entropy_coef=0.01):
-        """
-        初始化 PPOLoss 模块。
+    """创建 PPOLoss
 
-        Args:
-            clip_epsilon (float): 用于裁剪 surrogate loss 的参数。
-            value_clip (float): 用于裁剪值函数预测值的参数。
-            value_coef (float): 值函数损失的系数。
-            entropy_coef (float): 熵损失的系数。
-        """
+    Args:
+        clip_epsilon (float): 用于裁剪 surrogate loss 的参数. Defaults to 0.2.
+        value_clip (float): 用于裁剪值函数预测值的参数. Defaults to 5.
+        value_coef (float): 值函数损失的系数. Defaults to 1.
+        entropy_coef (float): 熵损失的系数. Defaults to 0.01.
+    """
+
+    def __init__(self, clip_epsilon=0.2, value_clip=5, value_coef=0.5, entropy_coef=0.01):
         super().__init__()
         self._clip_epsilon = clip_epsilon
         self._value_clip = value_clip
@@ -46,46 +45,28 @@ class PPOLoss(nn.Module):
         #     ratio < 1 - clip, clip掉 (动作不好的时候, 避免完全不选)
         #     ratio > 1 + clip, 不进行clip
         # 计算 surrogate loss
-        ratio =  torch.exp(log_prob - old_log_prob)
+        ratio = torch.exp(log_prob - old_log_prob)
+        policy_loss_unclip = advantage * ratio
         clipped_ratio = torch.clamp(ratio, 1 - self._clip_epsilon, 1 + self._clip_epsilon)
-
-        policy_loss = advantage * ratio
         policy_loss_clip = advantage * clipped_ratio
-        surrogate_loss = -torch.min(policy_loss, policy_loss_clip)
+        surrogate_loss = -torch.min(policy_loss_unclip, policy_loss_clip)
         policy_loss = surrogate_loss.mean()
 
-        clipped_mask = (policy_loss != surrogate_loss).float()
+        clipped_mask = (policy_loss_unclip != surrogate_loss).float()
         clipped_fraction = clipped_mask.mean()
-        # 裁剪值函数预测值
-        # 此处的clip是希望避免value的更新太激进
+
+        # 裁剪值函数预测值, 此处的clip是希望避免value的更新太激进
         # v_old, -> v_target ; 如果v_pred 在两者之间, 且v_pred的距和v_old的距离已经超过clip，则需要将其进行clip 这个时候 clip loss > pred loss
         value_pred_clip = torch.clamp(value, old_value - self._value_clip, old_value + self._value_clip)
 
         value_loss1 = (value - target_value).pow(2)
         value_loss2 = (value_pred_clip - target_value).pow(2)
-        value_loss = 0.5 * torch.max(value_loss1, value_loss2).mean()
-        value_loss = self._value_coef * value_loss
+        value_loss = self._value_coef * torch.max(value_loss1, value_loss2).mean()
 
-
-        # value_loss = self._value_coef * 0.5 * nn.functional.mse_loss(value_pred_clip, target_value)
-
-
-        entropy_loss = - self._entropy_coef * entropy
+        entropy_loss = -self._entropy_coef * entropy
         loss = policy_loss + value_loss + entropy_loss
 
         with torch.no_grad():
             log_ratio = log_prob - old_log_prob
             approx_kl_div = torch.mean((torch.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
         return loss, policy_loss, value_loss, entropy_loss, ratio, clipped_fraction
-
-
-def test():
-    # 示例用法：
-    advantages = torch.tensor([0.1, 0.2, 0.3])
-    old_probs = torch.tensor([0.4, 0.5, 0.6])
-    new_probs = torch.tensor([0.45, 0.55, 0.65])
-    values = torch.tensor([0.7, 0.8, 0.9])
-
-    loss_fn = PPOLoss()
-    loss = loss_fn(advantages, old_probs, new_probs, values)
-    print("总损失:", loss.item())
