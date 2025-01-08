@@ -6,7 +6,8 @@ import numpy as np
 from drill.pipeline.interface import ObsData, ActionData
 from drill import summary
 import logging
-from .atari_wrappers import wrap_deepmind
+from .atari_wrappers_ray import wrap_deepmind
+from .atari_wrappers_sb3 import AtariWrapper
 
 def getLogger(env_id):
     log_name = env_id if isinstance(env_id, str) else f"env-{env_id}"
@@ -27,14 +28,11 @@ def getLogger(env_id):
 class GymEnv:
     def __init__(self, env_id, atari_info, extra_info):
         atari_env_args = atari_info.get("atari_env_args")
-        dim = atari_info.get("image_dim", 64)
-        # self.env = wrap_deepmind(gym.make(**atari_env_args), dim=dim, framestack=False)
-        self.env = wrap_deepmind(gym.make(**atari_env_args), dim=dim, noframeskip=True)
-        # self.env = make_atari_env('ALE/BeamRider-v5', n_envs=1, seed=0)
-
+        dim = atari_info.get("image_dim", 84)
+        # self.env = wrap_deepmind(gym.make(**atari_env_args), dim=dim)
+        self.env = AtariWrapper(env=gym.make(**atari_env_args), dim=dim)
         self.agent_names = atari_info.get("agent_names", [])
         self.logger = getLogger(env_id)
-        self.hist_rewards = []
 
     def reset(self):
         self.total_reward = 0
@@ -51,28 +49,42 @@ class GymEnv:
             for agent_name in self.agent_names
         }
 
-    def step(self, command_dict):
+    def step1(self, command_dict):
         mean = lambda x : sum(x)/len(x)
         self.step_num += 1
         action = command_dict[self.agent_names[0]]
+        raw_obs, reward, terminated, truncated, info = self.env.step(action=np.array(action['meta_action']).item())
+        self.total_reward += reward
+        if terminated or truncated:
+            summary.average("episode_reward", self.total_reward)
+            summary.average("episode_step", self.step_num)
+        return {
+                agent_name: ObsData(
+                    obs = raw_obs,
+                    extra_info_dict= {
+                        "reward": reward,
+                    },
+                    agent_name=agent_name
+                )
+                for agent_name in self.agent_names
+            }, terminated or truncated
+
+    def step(self, command_dict):
+        self.step_num += 1
+        action = command_dict[self.agent_names[0]]
         raw_obs, reward, terminated, truncated, info = self.env.step(action=action['meta_action'])
-        self.total_reward += info['nature_reward']
-        done = False
         if terminated:
-            if info['lives'] <= 0:
-                done = True
-                summary.average("live_reward", self.total_reward)
-                summary.average("episode_reward", info['episode_reward'])
-                summary.average("episode_step", info['episode_step'])
-                self.logger.info(f"episode Over, Live reward is {self.total_reward}")
-                self.logger.info(f"episode Over, Total reward is {info['episode_reward']}")
-                self.logger.info(f"episode Over, Total step is {info['episode_step']}")
+            if info.get('lives', 0) <= 0:
+                summary.average("episode_reward", info['nature_episode_reward'])
+                summary.average("episode_step", info['nature_episode_step'])
+                self.logger.info(f"episode Over, Total reward is {info['nature_episode_reward']}")
+                self.logger.info(f"episode Over, Total step is {info['nature_episode_step']}")
         return {
             agent_name: ObsData(
                 obs = raw_obs,
                 extra_info_dict={
                     "reward": reward,
-                    "episode_reward": info["episode_reward"],
+                    "episode_reward": info["nature_episode_reward"],
                     "lives": info["lives"],
                 },
                 agent_name=agent_name,

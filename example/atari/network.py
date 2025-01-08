@@ -10,10 +10,10 @@ def init_weights(m):
 
 
 class ActorCriticCnn(nn.Module):
-    def __init__(self, features_dim=512):
+    def __init__(self, features_dim=512, action_num=9):
         super().__init__()
         self.cnn = nn.Sequential(
-            nn.Conv2d(4, 32, kernel_size=8, stride=4, padding=0),
+            nn.Conv2d(1, 32, kernel_size=8, stride=4, padding=0),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
             nn.ReLU(),
@@ -24,7 +24,7 @@ class ActorCriticCnn(nn.Module):
         n_flatten = 3136
         self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
         self.value_net = nn.Linear(features_dim, 1)
-        self.action_net = nn.Linear(features_dim, 9)
+        self.action_net = nn.Linear(features_dim, action_num)
         # 初始化网络参数
         init_weights(self)
 

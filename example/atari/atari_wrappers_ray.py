@@ -6,6 +6,7 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 from typing import Optional, Union
+from hyuRL.src.tools.reward_scaling import RewardScaling
 
 
 def rgb2gray(img: np.ndarray) -> np.ndarray:
@@ -60,10 +61,12 @@ def get_wrapper_by_cls(env, cls):
 class ClipRewardEnv(gym.RewardWrapper):
     def __init__(self, env):
         gym.RewardWrapper.__init__(self, env)
+        self.reward_scaling = RewardScaling(1, 0.99)
 
     def reward(self, reward):
         """Bin reward to {+1, 0, -1} by its sign."""
         return np.sign(reward)
+        return self.reward_scaling(reward)
 
 
 class EpisodicLifeEnv(gym.Wrapper):
@@ -236,9 +239,9 @@ class MonitorEnv(gym.Wrapper):
         self._current_reward += rew
         self._num_steps += 1
         self._total_steps += 1
-        info["episode_reward"] = self._current_reward
-        info["episode_step"] = self._num_steps
-        info["nature_reward"] = rew
+        # info["nature_reward"] = rew
+        info["nature_episode_reward"] = self._current_reward
+        info["nature_episode_step"] = self._num_steps
         return obs, rew, terminated, truncated, info
 
     def get_episode_rewards(self):
@@ -394,8 +397,8 @@ def wrap_deepmind(env, dim=84, framestack=True, noframeskip=False):
     if "FIRE" in env.unwrapped.get_action_meanings():
         env = FireResetEnv(env)
     env = WarpFrame(env, dim)
-    env = NormalizedImageEnv(env)  # 将像素值归一化到 [0, 1]
-    env = ClipRewardEnv(env)  # reward clipping is handled by policy eval
+    # env = NormalizedImageEnv(env)  # 将像素值归一化到 [0, 1]
+    # env = ClipRewardEnv(env)  # reward clipping is handled by policy eval
     # 4x image framestacking.
     if framestack is True:
         env = FrameStack(env, 4)
