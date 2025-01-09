@@ -40,12 +40,12 @@ def generate(config):
     config.quick_dict = {}
     for encoder_cfg in config.encoders:
         name = encoder_cfg.get_name()
-
         if isinstance(encoder_cfg, CommonEncoderConfig):
             encoder = CommonEncoder(
                 in_features=encoder_cfg.feature_size,
                 hidden_layer_sizes=encoder_cfg.hidden_layer_sizes,
-                output_size=DefaultFeatureLength
+                activation=encoder_cfg.activation,
+                output_size=DefaultFeatureLength,
             )
         elif isinstance(encoder_cfg, EntityEncoderConfig):
             encoder = EntityEncoder(
@@ -55,6 +55,7 @@ def generate(config):
                 output_size=DefaultFeatureLength,
                 transformer=encoder_cfg.transformer,
                 pooling=encoder_cfg.pooling,
+                activation=encoder_cfg.activation,
             )
         elif isinstance(encoder_cfg, SpatialEncoderConfig):
             encoder = SpatialEncoder(
@@ -141,7 +142,8 @@ def construct_dag(config_dict, model_dict):
 # 初始化网络参数
 def init_weights(m):
     if isinstance(m, nn.Linear):
-        torch.nn.init.xavier_uniform_(m.weight, mode='fan_in', nonlinearity='relu')  # Xavier初始化
+        torch.nn.init.xavier_uniform_(m.weight, mode='fan_in', nonlinearity='tanh')  # Xavier初始化
+        # torch.nn.init.xavier_uniform_(m.weight, mode='fan_in', nonlinearity='relu')  # Xavier初始化
         # torch.nn.init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')  # Xavier初始化
         if m.bias is not None:
             nn.init.zeros_(m.bias)

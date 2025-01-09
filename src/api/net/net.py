@@ -9,6 +9,7 @@ from hyuRL.src.network.aggregator import aggregator
 @dataclass
 class NetConfig:
     name: str = ""
+    activation='tanh'
     hidden_layer_sizes: List[int] = field(default_factory = lambda : [])
     dependency: List[str] = None
     def get_name(self):
@@ -18,7 +19,7 @@ class NetConfig:
 class EncoderConfig(NetConfig):
     feature_set: FeatureSet = None
     def get_name(self):
-        return self.name if self.name else f"encoder_{self.feature_set.name}"
+        return self.name if self.name else f"{self.feature_set.name}_encoder"
 
     def __post_init__(self):
         if not self.name:
@@ -80,6 +81,16 @@ class GaussianDecoderConfig(DecoderConfig):
 @dataclass
 class SingleSelectiveDecoderConfig(DecoderConfig):
     attention_size: int = 64
+
+@dataclass
+class UnorderedMultiSelectiveDecoderConfig(DecoderConfig):
+    attention_size: int = 64
+    pass
+
+@dataclass
+class OrderedMultiSelectiveDecoderConfig(DecoderConfig):
+    attention_size: int = 64
+    pass
 
 @dataclass
 class ValueApproximatorConfig(NetConfig):

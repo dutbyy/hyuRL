@@ -76,7 +76,11 @@ class Singleton(type):
 
 class Summary:
     step_dict = defaultdict(lambda: 0)
-    writer:  SummaryWriter = SummaryWriter("/job/logs/tensorboard/local_flow")
+    writer:  SummaryWriter = SummaryWriter("/job/logs/tensorboard/")
+
+    @classmethod
+    def setpath(cls, subpath):
+        cls.writer:  SummaryWriter = SummaryWriter(f"/job/logs/tensorboard/{subpath}")
 
     @classmethod
     def add_scaler(cls, key, value, global_step=None, wall_time=None):

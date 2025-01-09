@@ -5,13 +5,6 @@ from hyuRL.src.network.encoder.encoder import Encoder
 from hyuRL.src.network.layer.active_tool import make_active_layer
 
 
-def init_weights(m):
-    if type(m) == nn.Linear:
-        nn.init.xavier_uniform_(m.weight)
-        if m.bias is not None:
-            nn.init.zeros_(m.bias)
-
-
 class CommonEncoder(Encoder):
     r"""用于处理环境中的统计特征信息的编码器
     CommonEncoder
@@ -43,7 +36,6 @@ class CommonEncoder(Encoder):
             layers.append(make_active_layer(activation))
             layers.append(nn.LayerNorm(out_f))
         self._dense_sequence = nn.Sequential(*layers)
-        self._dense_sequence.apply(init_weights)
 
     def forward(
         self, inputs: Union[torch.Tensor], training: bool = False

@@ -8,6 +8,7 @@ from typing import List, Tuple
 
 from hyuRL.src.network.decoder.decoder import Decoder
 from hyuRL.src.network.layer.attention import attention_score_model
+from hyuRL.src.network.layer.active_tool import make_active_layer
 
 
 class MeanMax(nn.Module):
@@ -64,7 +65,7 @@ class SingleSelectiveDecoder(Decoder):
         in_features (_type_): 输入特征维度
         attention_size (int, optional): 注意力隐藏层大小. Defaults to 64.
     """
-    def __init__(self, in_features:int, attention_size: int = 64):
+    def __init__(self, in_features:int, attention_size: int = 64, activation='relu'):
 
         super(SingleSelectiveDecoder, self).__init__()
         self._add_attention = attention_score_model(
@@ -72,7 +73,7 @@ class SingleSelectiveDecoder(Decoder):
         )
         self.linear_seq = nn.Sequential(
             nn.Linear(2 * in_features, in_features),
-            nn.ReLU(),
+            make_active_layer(activation).
             nn.Linear(in_features, in_features),
         )
 

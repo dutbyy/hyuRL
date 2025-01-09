@@ -4,13 +4,7 @@ from torch import nn
 from typing import List, Tuple, Union
 
 from .encoder import Encoder
-
-
-def init_weights(m):
-    if type(m) == nn.Linear:
-        nn.init.xavier_uniform_(m.weight)
-        if m.bias is not None:
-            nn.init.zeros_(m.bias)
+from hyuRL.src.network.layer.active_tool import make_active_layer
 
 
 class ResnetBlock(nn.Module):
@@ -68,6 +62,7 @@ class SpatialEncoder(Encoder):
         output_size: int,
         down_samples: List[int] = None,
         res_block_num: int = 4,
+        activation='relu',
     ):
         super().__init__()
         layers = []
@@ -88,7 +83,7 @@ class SpatialEncoder(Encoder):
                 layers.append(
                     nn.Conv2d(channel_num, filters, kernel_size, strides, padding)
                 )
-                layers.append(nn.ReLU())
+                layers.append(make_active_layer(activation))
                 channel_num = filters
         if res_block_num:
             for _ in range(res_block_num):
@@ -98,10 +93,9 @@ class SpatialEncoder(Encoder):
         layers.append(nn.Flatten())
         shape_size = math.prod(pre_shape)
         layers.append(nn.Linear(shape_size * channel_num, output_size))
-        layers.append(nn.ReLU())
+        layers.append(make_active_layer(activation))
 
         self._net_sequence = nn.Sequential(*layers)
-        self._net_sequence.apply(init_weights)
 
     def forward(
         self, inputs: Union[torch.Tensor], training: bool = False

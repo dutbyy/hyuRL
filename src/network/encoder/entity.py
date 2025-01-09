@@ -5,15 +5,8 @@ from typing import Tuple, Union
 from hyuRL.src.network.encoder.encoder import Encoder
 from hyuRL.src.network.layer.active_tool import make_active_layer
 
-def init_weights(m):
-    from torch.nn import init
-    if type(m) == nn.Linear:
-        init.xavier_uniform_(m.weight)
-        if m.bias is not None:
-            init.zeros_(m.bias)
-
 class MaxPooling(nn.Module):
-    def __init__(self, length, dim=1,):
+    def __init__(self, length, dim=1):
         super().__init__()
         self.pooling = torch.nn.MaxPool1d(length)
 
@@ -56,9 +49,6 @@ class EntityEncoder(Encoder):
             layers.append(make_active_layer(activation))
             layers.append(nn.LayerNorm(out_f))
         self._dense_sequence = nn.Sequential(*layers)
-        self._dense_sequence.apply(init_weights)
-
-
 
     def forward(self,
                 inputs: Union[torch.Tensor],
