@@ -11,6 +11,7 @@ from typing import Dict, Any
 from hyuRL.src.flow.drill_plugin.api.flow_api import EnvironmentDescriptor
 from hyuRL.src.tools.common import construct, timer_decorator, fix_print
 from hyuRL.local.flow.flow_predictor import PredictorClient
+from hyuRL.src.tools.common import Summary
 
 mean = lambda x : sum(x)/len(x)
 
@@ -118,6 +119,7 @@ class Actor:
                 self.total_rewards[:] = self.total_rewards[-100:]
             self.logger.info(f"average episode reward is {mean(self.total_rewards):.1f}")
             print(f"average episode reward is {mean(self.total_rewards):.1f}")
+            Summary.add_scaler('episode_reward', mean(self.total_rewards))
         rets = [pickle.loads(item) for item in self.datas]
         self.sampling_flag.value = 0
         return rets

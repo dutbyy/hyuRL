@@ -41,7 +41,7 @@ class LocalMaster:
         self.actor = Actor(env_num=4, flow_config=flow_config)
         self.learner = LocalLearner(flow_config)
         self.env_num = env_num
-        self.sample_size = sample_size * env_num
+        self.sample_size = sample_size
         self.batch_size = batch_size
         self.epoch_num = epoch_num
         self.save_interval = save_interval
@@ -82,7 +82,7 @@ def main(flow_config):
     import multiprocessing
 
     multiprocessing.set_start_method("spawn")
-    master = LocalMaster(flow_config)
+    master = LocalMaster(flow_config, sample_size=4096, batch_size=1024)
     master.run()
 
 
