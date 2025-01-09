@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Dict
 from copy import deepcopy
-from matplotlib.testing.jpl_units import EpochConverter
 import numpy as np
 import random
 from hyuRL.local.flow.flow_actor import Actor
