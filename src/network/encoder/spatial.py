@@ -76,7 +76,6 @@ class SpatialEncoder(Encoder):
         # layers.append(nn.ReLU())
         layers.append(Permute(0, 3, 1, 2))
         pre_shape = in_shape
-        print(f"pre_shape is {pre_shape}")
         if down_samples:
             for filters, kernel_size, strides, padding in down_samples:
                 if padding == 'same':
@@ -86,7 +85,6 @@ class SpatialEncoder(Encoder):
                     pre_shape = out_shape
                 elif padding == 'valid' or padding == 0:
                     pre_shape = [(pre_shape[0]- kernel_size)//strides + 1 , (pre_shape[1]-kernel_size)//strides + 1 ]
-                    print(f"strides is {strides} pre_shape is {pre_shape}")
                 layers.append(
                     nn.Conv2d(channel_num, filters, kernel_size, strides, padding)
                 )
