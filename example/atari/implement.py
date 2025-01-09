@@ -30,7 +30,7 @@ class GymEnv:
         atari_env_args = atari_info.get("atari_env_args")
         dim = atari_info.get("image_dim", 84)
         # self.env = wrap_deepmind(gym.make(**atari_env_args), dim=dim)
-        self.env = AtariWrapper(env=gym.make(**atari_env_args), dim=dim)
+        self.env = AtariWrapper(env=gym.make(**atari_env_args), dim=dim, frame_stack=1)
         self.agent_names = atari_info.get("agent_names", [])
         self.logger = getLogger(env_id)
 

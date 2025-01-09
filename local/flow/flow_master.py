@@ -88,6 +88,7 @@ def main(flow_config):
 
 if __name__ == "__main__":
     from hyuRL.local.flow.env_config import flow_config
-
+    from hyuRL.src.tools.common import Summary
+    Summary.setpath('beamrider-v4-sb3-env')
     fix_print()
     main(flow_config)

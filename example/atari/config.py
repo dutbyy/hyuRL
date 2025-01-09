@@ -33,15 +33,16 @@ model_config = {
     "atari_model": {
         "class": PPOPolicy,  # 选用最佳实践推荐的模型，基于ppo的CommanderModel
         "params": {
-            # "network_config": network_cfg,  # 神经网络结构
-            "network_config": {
-                "class": ActorCriticCnn,
-                "params": {
-                    "action_num": 9,
-                },
-            },
+            "network_config": network_cfg,  # 神经网络结构
+            # "network_config": {
+            #     "class": ActorCriticCnn,
+            #     "params": {
+            #         "action_num": 9,
+            #     },
+            # },
             "device": "cuda",
-            "max_grad_norm": 10,
+            "max_grad_norm": 1.0,
+            "eps": 1e-5,
         },
         "save": {
             "interval": 100,  # 模型存储间隔，即网络更新多少次存储一次模型
@@ -75,7 +76,7 @@ env = {
     "params": {
         "atari_info": {
             "atari_env_args" : {
-                "id": "ALE/BeamRider-v5",
+                "id": "BeamRiderNoFrameskip-v4",
                 # "id": "ALE/Pong-v5",
             },
             "image_dim": 84,
