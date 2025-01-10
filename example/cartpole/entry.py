@@ -1,6 +1,6 @@
 # builder = None
 from hyuRL.example.cartpole.config import builder
-from hyuRL.src.flow.drill_plugin.interface.flow_model import FlowModelPPOSync as FlowModelPPO
+from hyuRL.src.flow.drill_plugin.interface.flow_model import FlowModelPPO
 from hyuRL.src.flow.drill_plugin.interface.flow_env import FlowEnvImp as FlowEnvPPO
 
 flow_config = {
