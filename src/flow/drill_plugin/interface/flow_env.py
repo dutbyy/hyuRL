@@ -92,7 +92,7 @@ class FlowEnvImp(Environment):
         agent2state, agent2reward = self._pipeline.pre_process(self._obs_data, self._episode_done)
         episode_done = 1.0 if self._episode_done else 0.0
         if self._episode_done and not self.episode_mode:
-            if sum([agent_data.extra_info_dict['lives'] for name, agent_data in self._obs_data.items()]) == 0:
+            if sum([agent_data.extra_info_dict.get('lives', 0) for name, agent_data in self._obs_data.items()]) == 0:
                 self.reseted = sum([agent_data.extra_info_dict['episode_reward'] for name, agent_data in self._obs_data.items()])
             self.reset()
             agent2state, _ = self._pipeline.pre_process(self._obs_data, self._episode_done)
