@@ -94,7 +94,7 @@ class OrderedMultiSelectiveDecoderConfig(DecoderConfig):
 
 @dataclass
 class ValueApproximatorConfig(NetConfig):
-    name: str = "aggregator"
+    name: str = "value"
 
 @dataclass
 class DenseAggregatorConfig(AggregatorConfig):

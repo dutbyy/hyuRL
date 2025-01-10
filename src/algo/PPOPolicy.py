@@ -153,6 +153,7 @@ class PPOPolicy:
             self._network, self.max_grad_norm
         )
         self._optimizer.step()
+        torch.cuda.empty_cache()  # 释放未使用的显存
         return {
             "loss": loss.detach(),
             "policy_loss": policy_loss.detach(),

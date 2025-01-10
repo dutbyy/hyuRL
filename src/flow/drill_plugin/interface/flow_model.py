@@ -35,22 +35,16 @@ def getLogger(env_id):
 
 # 定义一个递归函数来处理嵌套结构
 def trans2tensor(nested_structure):
-    try:
-        if torch.cuda.is_available():
-            return tree.map_structure(lambda x: torch.from_numpy(x.numpy()).cuda(), nested_structure)
-        else:
-            return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
-    except Exception as e:
-        if torch.cuda.is_available():
-            return tree.map_structure(lambda x: torch.from_numpy(x).cuda(), nested_structure)
-        else:
-            return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
+    if torch.cuda.is_available():
+        return nested_structure
+    else:
+        return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
 
 # 定义一个递归函数来处理嵌套结构
 def trans2numpy(nested_structure):
     return tree.map_structure(lambda x: x.cpu().numpy(), nested_structure)
 
-class FlowModelPPOSync(flow.Model):
+class FlowModelPPO(flow.Model):
 
     def __init__(self, model_name: str, builder: Builder):
         self._init(model_name, builder)
