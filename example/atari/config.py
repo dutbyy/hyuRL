@@ -2,7 +2,8 @@ from hyuRL.src.feature.feature import *
 from hyuRL.src.feature.feature_set import *
 from hyuRL.src.api.net.net import *
 from hyuRL.src.flow.drill_plugin.interface.builder import ExBuilder
-from hyuRL.src.algo.PPOPolicy import PPOPolicy
+# from hyuRL.src.algo.PPOPolicy import PPOPolicy
+from hyuRL.src.algo.PPOPolicyMinibatch import PPOPolicy
 from hyuRL.example.atari.implement import GymEnv
 from hyuRL.example.atari.implement import PipelineImplement
 from drill.pipeline import AgentPipeline, HandlerSpecies
@@ -28,6 +29,7 @@ network_cfg = CommanderNetworkConfig(
         CategoricalDecoderConfig(name="meta_action", n=9),
     ],
     value=ValueApproximatorConfig(hidden_layer_sizes=[256,128]),
+
 )
 
 model_config = {
@@ -41,9 +43,14 @@ model_config = {
             #         "action_num": 9,
             #     },
             # },
-            "device": "cuda",
-            "max_grad_norm": 1.0,
+            "learning_rate": 2.5e-4,
+            "clip_epsilon": 2.0,
             "eps": 1e-5,
+            "device": "cuda",
+            "max_grad_norm": 0.5,
+            "epoch_num": 8,
+            "minibatch_split": 4,
+            "adv_norm": False,
         },
         "save": {
             "interval": 100,  # 模型存储间隔，即网络更新多少次存储一次模型

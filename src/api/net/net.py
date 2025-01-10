@@ -9,7 +9,7 @@ from hyuRL.src.network.aggregator import aggregator
 @dataclass
 class NetConfig:
     name: str = ""
-    activation='tanh'
+    activation='relu'
     hidden_layer_sizes: List[int] = field(default_factory = lambda : [])
     dependency: List[str] = None
     def get_name(self):
@@ -99,7 +99,6 @@ class ValueApproximatorConfig(NetConfig):
 @dataclass
 class DenseAggregatorConfig(AggregatorConfig):
     name: str= "dense_aggregator"
-    activation: str = "relu"
 
 @dataclass
 class CommanderNetworkConfig:

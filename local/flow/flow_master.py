@@ -64,7 +64,7 @@ class LocalMaster:
         while True:
             self.train_step += 1
             datas = self.actor.get_batch(self.sample_size)
-            for epoch in range(10):
+            for epoch in range(1):
                 random.shuffle(datas)
                 for idx, train_datas in wrapper(datas, self.batch_size):
                     self.learner.train(self.learner.model_names[0], train_datas)
@@ -81,13 +81,13 @@ def main(flow_config):
     import multiprocessing
 
     multiprocessing.set_start_method("spawn")
-    master = LocalMaster(flow_config, sample_size=4096, batch_size=1024)
+    master = LocalMaster(flow_config, sample_size=4096, batch_size=4096)
     master.run()
 
 
 if __name__ == "__main__":
     from hyuRL.local.flow.env_config import flow_config
     from hyuRL.src.tools.common import Summary
-    Summary.setpath('beamrider-v4-ray-default-env')
+    Summary.setpath('beamrider-v4-ray-relu-env')
     fix_print()
     main(flow_config)
