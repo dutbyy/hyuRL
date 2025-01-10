@@ -68,7 +68,7 @@ class LocalMaster:
                 random.shuffle(datas)
                 for idx, train_datas in wrapper(datas, self.batch_size):
                     self.learner.train(self.learner.model_names[0], train_datas)
-                    print(f"training step: {self.train_step} epoch: {epoch+1} times: {idx}", end="\r", flush=True)
+                    print(f"training step: {self.train_step} epoch: {epoch+1} times: {idx+1}", end="\r", flush=True)
             print()
             for model_name in self.learner.model_names:
                 weights = self.learner.get_weights(model_name)
@@ -88,6 +88,6 @@ def main(flow_config):
 if __name__ == "__main__":
     from hyuRL.local.flow.env_config import flow_config
     from hyuRL.src.tools.common import Summary
-    Summary.setpath('beamrider-v4-sb3-env')
+    Summary.setpath('beamrider-v4-ray-default-env')
     fix_print()
     main(flow_config)

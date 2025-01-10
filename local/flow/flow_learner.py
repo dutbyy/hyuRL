@@ -1,8 +1,13 @@
 from __future__ import annotations
 from typing import Dict
 from hyuRL.src.tools.common import timer_decorator
+import torch
 
-
+def pretocuda(nested_structure):
+    import tree
+    if torch.cuda.is_available():
+        return tree.map_structure(lambda x: torch.from_numpy(x).cuda(), nested_structure)
+    return nested_structure
 class LocalLearner:
     def __init__(self, flow_config: Dict):
         self.builder = flow_config["builder"]
@@ -17,6 +22,7 @@ class LocalLearner:
 
     @timer_decorator
     def train(self, model_name, train_data):
+        train_data = pretocuda(train_data)
         return self.flow_model_dic[model_name].learn(train_data)
 
     def get_weights(self, model_name):
