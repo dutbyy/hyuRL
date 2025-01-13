@@ -122,6 +122,11 @@ def batch_inference(flow_model, agent_name_to_states):
     # 将所有 agent 的 states 信息组成一个batch
     batch_states = convert_to_batch_state(states)
     # 在当前 model 下进行 batch predict
+    def trans2tensor(nested_structure):
+        import tree
+        import torch
+        return tree.map_structure(lambda x: torch.from_numpy(x).cuda(), nested_structure)
+    batch_states = trans2tensor(batch_states)
     batch_outputs = flow_model.predict(batch_states)
     split_outputs = split_output(batch_outputs)
     # 每个 agent 对应各自的 action_dict

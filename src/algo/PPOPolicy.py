@@ -6,7 +6,7 @@ import torch
 from hyuRL.src.network.commander import ComplexNetwork
 from hyuRL.src.api.net.net import CommanderNetworkConfig
 from hyuRL.src.loss.ppo import PPOLoss
-from hyuRL.src.tools.common import construct
+from hyuRL.src.tools.common import construct, Summary
 
 def check_gradient_clipping(model, max_grad_norm):
     # 计算梯度范数
@@ -85,7 +85,7 @@ class PPOPolicy:
         self._optimizer = torch.optim.Adam(
             self._network.parameters(), lr=learning_rate, eps=eps
         )
-        self._loss_fn = PPOLoss(
+        self._loss_fn: PPOLoss = PPOLoss(
             clip_epsilon=clip_epsilon,
             value_clip=value_clip,
             value_coef=value_coef,
@@ -111,6 +111,7 @@ class PPOPolicy:
         behavior_mask_dict = training_data.get("decoder_mask")
         behavior_values = training_data.get("value")
         advantages = training_data.get("advantage")
+
         if self.advantage_normalize:
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
@@ -136,7 +137,7 @@ class PPOPolicy:
         entropy_dict = self._network.entropy(logits_dict, behavior_mask_dict)
         entropy = torch.mean(sum(entropy_dict.values()))
         value = predict_output_dict["value"]
-        loss, policy_loss, value_loss, entropy_loss, ratio, clipped_fraction = (
+        loss, policy_loss, value_loss, entropy_loss, ratio_diff, clipped_fraction = (
             self._loss_fn(
                 old_log_prob=old_logp,
                 log_prob=logp,
@@ -154,10 +155,17 @@ class PPOPolicy:
         )
         self._optimizer.step()
         torch.cuda.empty_cache()  # 释放未使用的显存
-        return {
-            "loss": loss.detach(),
-            "policy_loss": policy_loss.detach(),
-            "value_loss": value_loss.detach(),
-            "entropy": entropy.detach(),
-            "clipped_fraction": clipped_fraction.detach(),
+        summary_dict = {
+            "loss": loss,
+            "policy_loss": policy_loss,
+            "value_loss": value_loss,
+            "entropy_loss": entropy_loss,
+            "entropy": entropy,
+            "ratio_diff": ratio_diff,
+            "clipped_fraction": clipped_fraction,
         }
+
+        summary_dict = {k:v.detach().cpu().numpy() for k, v in summary_dict.items()}
+        for k, v in summary_dict.items():
+            Summary.add_scaler(k, v)
+        return summary_dict

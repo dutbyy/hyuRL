@@ -138,8 +138,9 @@ class FlowModelPPO(flow.Model):
 
         training_data = trans2tensor(training_data)
         summary_dict = self._model.learn(training_data)
-        summary_dict= trans2numpy(summary_dict)
 
+        for k, v in summary_dict.items():
+            summary.average(f"{self._model_name}_{k}", v, source="origin")
         if True:
             summary.sum(f"{self._model_name}_update_step", 1, source="origin")
             if hasattr(self, "_save_params") and self._learn_step % self._save_params["interval"] == 0:

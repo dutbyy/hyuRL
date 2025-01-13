@@ -10,6 +10,7 @@ from typing import List, Tuple
 
 from hyuRL.src.network.decoder.decoder import Decoder
 from hyuRL.src.network.layer.attention import attention_score_model
+from hyuRL.src.network.layer.distribution import UnorderedMultiSelective
 
 
 class MeanMax(nn.Module):
@@ -73,7 +74,7 @@ def apply_mask(inputs, mask=None, mode="mul"):
         raise Exception(f"Unsupport Maks Mode {mode}")
 
 
-class SingleSelectiveDecoder(Decoder):
+class UnorderedMultiSelectiveDecoder(Decoder):
     """用于处理单个单位选择的解码器
 
     Args:
@@ -81,16 +82,17 @@ class SingleSelectiveDecoder(Decoder):
         attention_size (int, optional): 注意力隐藏层大小. Defaults to 64.
     """
 
-    def __init__(self, in_features: int, attention_size: int = 64):
-
-        super(SingleSelectiveDecoder, self).__init__()
+    def __init__(self, in_features: int, attention_size: int = 64, pooling=MeanMax(), temperature=1.0):
+        super().__init__()
         self._add_attention = attention_score_model(
             "add", d_q=in_features, d_k=in_features, hidden_size=attention_size
         )
+        self._pooling = pooling
+        self._temperature = temperature
         self.linear_seq = nn.Sequential(
-            nn.Linear(2 * in_features, in_features),
+            nn.Linear(in_features * 2, in_features * 2),
             nn.ReLU(),
-            nn.Linear(in_features, in_features),
+            nn.Linear(in_features * 2, in_features),
         )
 
     def forward(
@@ -100,12 +102,9 @@ class SingleSelectiveDecoder(Decoder):
         behavior_action: torch.Tensor = None,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
 
-        inputs, source_embeddings = (
-            inputs  # (batch_size, in_features), (batch_size, seq_len, in_features)
-        )
-        seq_len = source_embeddings.shape[1]
-        query = inputs.unsqueeze(1)  # (batch_size, 1,       in_features)
-        key = source_embeddings  # (batch_size, seq_len, in_features)
+        inputs, source_embeddings = inputs  # (batch_size, in_features), (batch_size, seq_len, in_features)
+        query = inputs.unsqueeze(1)         # (batch_size, 1,       in_features)
+        key = source_embeddings             # (batch_size, seq_len, in_features)
         attention_score = self._add_attention((query, key))  # (batch_size, 1, seq_len)
 
         logits = attention_score.squeeze(1)  # (batch_size, seq_len)
@@ -117,35 +116,18 @@ class SingleSelectiveDecoder(Decoder):
         if action_mask is not None:
             logits = apply_mask(logits, action_mask, mode="add")
 
+        distribution = UnorderedMultiSelective(logits, temperature=self._temperature)
         if behavior_action is None:
             behavior_action: torch.Tensor = distribution.sample()
-        behavior_action = behavior_action.long()  # (batch_size,)
-        behavior_action_one_hot = nn.functional.one_hot(
-            behavior_action, seq_len
-        )  # (batch_size, seq_len)
 
-        pooling = MeanMax()
-        selected_embedding = pooling(
-            source_embeddings, behavior_action_one_hot
+        behavior_action = behavior_action.long()  # (batch_size,)
+
+        selected_embedding = self._pooling(
+            source_embeddings, behavior_action
         )  # (batch_size, in_features * 2)
-        selected_embedding = self.linear_seq(
-            selected_embedding
-        )  # (batch_size, in_features)
+        selected_embedding = self.linear_seq(selected_embedding)  # (batch_size, in_features)
         auto_regressive_embedding = selected_embedding + inputs
         return logits, behavior_action, auto_regressive_embedding
 
     def distribution(self, logits):
-        return Categorical(logits=logits)
-
-
-if __name__ == "__main__":
-    decoder = SingleSelectiveDecoder(256, 64)
-    inputs = torch.rand(32, 256)
-    source_embeddings = torch.rand(32, 16, 256)
-
-    logits, behavior_action, auto_regressive_embedding = decoder(
-        (inputs, source_embeddings)
-    )
-    print(logits.shape)
-    print(behavior_action.shape)
-    print(auto_regressive_embedding.shape)
+        return UnorderedMultiSelective(logits, temperature=self._temperature)

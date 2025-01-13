@@ -1,5 +1,5 @@
 # builder = None
-from hyuRL.example.minigame.config import builder
+from hyuRL.example.acrobot.config import builder
 from hyuRL.src.flow.drill_plugin.interface.flow_model import FlowModelPPO
 from hyuRL.src.flow.drill_plugin.interface.flow_env import FlowEnvImp as FlowEnvPPO
 
@@ -7,10 +7,10 @@ flow_config = {
     'algorithm': {'flow_env': FlowEnvPPO, 'flow_model': FlowModelPPO},
     'builder': builder,
     'actor_config': {
-        'actor_minigame': {
+        'actor_ac': {
             'training_models': [
                 {
-                    'model_name': 'minigame_model',
+                    'model_name': 'ac_model',
                     'fragment_size': 512,
                     'replay_size': 1,
                     'sample_batch_size': 4096,

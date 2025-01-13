@@ -11,7 +11,7 @@ from .network import ActorCriticCnn
 network_cfg = CommanderNetworkConfig(
     encoders=[
         SpatialEncoderConfig(
-            channel_num = 4,
+            channel_num = 1,
             down_samples = [
                 (32, 8, 4, 0),
                 (64, 4, 2, 0),
@@ -21,7 +21,7 @@ network_cfg = CommanderNetworkConfig(
             feature_set=SpatialFeatureSet(
                 name="common",
                 shape=[84, 84],
-                feature_dict={"raw": VectorFeature(4)}
+                feature_dict={"raw": VectorFeature(1)}
             )
         ),
     ],
@@ -44,7 +44,7 @@ model_config = {
             #     },
             # },
             "learning_rate": 2.5e-4,
-            "clip_epsilon": 2.0,
+            "clip_epsilon": 0.2,
             "eps": 1e-5,
             "device": "cuda",
             "max_grad_norm": 0.5,

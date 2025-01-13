@@ -31,7 +31,7 @@ class SingleActor:
         self.data_size = data_size
 
         self.predictor: PredictorClient = PredictorClient("localhost", 50051)
-        self.fragment_size = 257
+        self.fragment_size = 129
         self.flow_config = flow_config
         self.env_desc = env_desc
 

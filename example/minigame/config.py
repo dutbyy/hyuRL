@@ -60,10 +60,10 @@ network_cfg = CommanderNetworkConfig(
     ],
     decoders=[
         CategoricalDecoderConfig(name="meta", n=2, hidden_layer_sizes=[]),
-        UnorderedMultiSelectiveDecoderConfig(name="selected_units", attention_size=64, source_encoder_name='enemy_encoder'),
+        UnorderedMultiSelectiveDecoderConfig(name="selected_units", attention_size=64, source_encoder_name='marine_encoder'),
         SingleSelectiveDecoderConfig(name="target", attention_size=64, source_encoder_name='enemy_encoder', mask="enemy_mask"),
-        CategoricalDecoderConfig(name="pox_x", n=3, hidden_layer_sizes=[512, 256]),
-        CategoricalDecoderConfig(name="pox_y", n=3, hidden_layer_sizes=[512, 256]),
+        CategoricalDecoderConfig(name="pos_x", n=3, hidden_layer_sizes=[512, 256]),
+        CategoricalDecoderConfig(name="pos_y", n=3, hidden_layer_sizes=[512, 256]),
     ],
     aggregator=DenseAggregatorConfig(hidden_layer_sizes=[512, 256]),
     value=ValueApproximatorConfig(hidden_layer_sizes=[64, 32]),

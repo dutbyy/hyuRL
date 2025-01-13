@@ -12,20 +12,43 @@ class PPOLoss(nn.Module):
         entropy_coef (float): 熵损失的系数. Defaults to 0.01.
     """
 
-    def __init__(self, clip_epsilon=0.2, value_clip=5, value_coef=0.5, entropy_coef=0.01):
+    def __init__(
+        self, clip_epsilon: float = 0.2, value_clip: float = 5.0, value_coef: float = 0.5, entropy_coef: float = 0.01
+    ):
         super().__init__()
         self._clip_epsilon = clip_epsilon
         self._value_clip = value_clip
         self._value_coef = value_coef
         self._entropy_coef = entropy_coef
 
-    def forward(self, old_log_prob, log_prob, advantage, old_value, value, target_value, entropy):
-        """
-        计算 PPO 损失。
+    def forward(
+        self,
+        old_log_prob: torch.Tensor,
+        log_prob: torch.Tensor,
+        advantage: torch.Tensor,
+        old_value: torch.Tensor,
+        value: torch.Tensor,
+        target_value: torch.Tensor,
+        entropy: torch.Tensor,
+    ):
+        """ 计算 PPO 损失。
+
+        Args:
+            old_log_prob (torch.Tensor): action在原有策略的输出分布的logp
+            log_prob (torch.Tensor): action在当前策略的输出分布的logp
+            advantage (torch.Tensor): _description_
+            old_value (torch.Tensor): _description_
+            value (torch.Tensor): _description_
+            target_value (torch.Tensor): _description_
+            entropy (torch.Tensor): _description_
+
+        Returns:
+            _type_: _description_
+        """        """
 
         Args:
             advantage (torch.Tensor): 优势估计。
-            old_probs (torch.Tensor): 旧的动作概率。
+            old_log_probs (torch.Tensor): 旧的动作概率。
             new_probs (torch.Tensor): 新的动作概率。
             values (torch.Tensor): 预测的状态值。
 
@@ -69,4 +92,6 @@ class PPOLoss(nn.Module):
         with torch.no_grad():
             log_ratio = log_prob - old_log_prob
             approx_kl_div = torch.mean((torch.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
-        return loss, policy_loss, value_loss, entropy_loss, ratio, clipped_fraction
+            ratio_diff = torch.mean((ratio-1.0).abs())
+
+        return loss, policy_loss, value_loss, entropy_loss, ratio_diff, clipped_fraction

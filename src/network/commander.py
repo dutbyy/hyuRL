@@ -23,10 +23,12 @@ HIDDEN_STATE = "hidden_state"
 from hyuRL.src.api.net.net import CommanderNetworkConfig
 from hyuRL.src.api.net.net import CommonEncoderConfig, EntityEncoderConfig, SpatialEncoderConfig
 from hyuRL.src.api.net.net import CategoricalDecoderConfig, GaussianDecoderConfig, SingleSelectiveDecoderConfig
+from hyuRL.src.api.net.net import OrderedMultiSelectiveDecoderConfig, UnorderedMultiSelectiveDecoderConfig
 
 from hyuRL.src.network import Encoder, Decoder, Aggregator, ValueApproximator
 from hyuRL.src.network import CommonEncoder, EntityEncoder, SpatialEncoder
 from hyuRL.src.network import CategoricalDecoder, GaussianDecoder, SingleSelectiveDecoder
+from hyuRL.src.network import UnorderedMultiSelectiveDecoder
 from hyuRL.src.network import DenseAggregator
 from hyuRL.src.network import ValueApproximator
 
@@ -112,8 +114,18 @@ def generate(config):
                 in_features = DefaultFeatureLength,
                 attention_size = decoder_cfg.attention_size,
             )
+        elif isinstance(decoder_cfg, OrderedMultiSelectiveDecoderConfig):
+            decoder = SingleSelectiveDecoder(
+                in_features = DefaultFeatureLength,
+                attention_size = decoder_cfg.attention_size,
+            )
+        elif isinstance(decoder_cfg, UnorderedMultiSelectiveDecoderConfig):
+            decoder = UnorderedMultiSelectiveDecoder(
+                in_features = DefaultFeatureLength,
+                attention_size = decoder_cfg.attention_size,
+            )
         else:
-            raise Exception("Not Supported Encoder")
+            raise Exception(f"Not Supported Encoder: {type(decoder_cfg)}")
         module_dict[name] = decoder
         if not decoder_cfg.dependency:
             decoder_cfg.dependency = [config.aggregator.get_name()]

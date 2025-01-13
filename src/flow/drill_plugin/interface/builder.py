@@ -31,22 +31,22 @@ class ExBuilder(Builder):
         self._save_params = {}
         self._learn_step = 0
         self._backend = backend
-    
+
 
 
     def get_model_name(self, agent_name: str) -> str:
         return self._agents[agent_name]["model"]
-    
+
     def _get_agent_name(self, model_name: str):
         for name, agent in self._agents.items():
             if model_name == agent["model"]:
                 return name
         raise ValueError(f"{model_name} does not exist. Please double-check the config.")
-    
+
     @property
     def backend(self) -> str:
         return self._backend
-    
+
     @property
     def model_names(self):
         return list(self._models.keys())
@@ -61,7 +61,7 @@ class ExBuilder(Builder):
 
     @property
     def learn_step(self):
-        return self._learn_step 
+        return self._learn_step
 
     def build_env(self, env_id: int, extra_info):
         self._env["params"]["env_id"] = env_id
@@ -89,10 +89,10 @@ class ExBuilder(Builder):
 
         template = {"class": GlobalPipeline, "params": {}}
         global_info = self._pipeline.get('global', template)
-        history_len = self._pipeline.get('history_len', 0)
+        history_len = self._pipeline.get('history_len', 3)
         pipeline_ = PipelineManager(ap_info, construct(global_info), history_len)
         return pipeline_
-        
+
     def get_initial_state(self, agent_name):
         hidden_state_dict = {}
         return hidden_state_dict

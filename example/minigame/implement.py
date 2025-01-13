@@ -42,56 +42,6 @@ def getLogger(env_id):
     return logger
 
 
-class CartpoleEnv:
-    def __init__(self, env_id, extra_info):
-        self.env = gymnasium.make("CartPole-v1")
-        self.agent_names = ["cpdemo"]
-        self.logger = getLogger(env_id)
-        self.hist_rewards = []
-
-    def reset(self):
-        self.total_reward = 0
-
-        raw_obs, _ = self.env.reset()
-        return {
-            agent_name: ObsData(
-                obs=raw_obs,
-                extra_info_dict={
-                    "reward": 1.0,
-                },
-                agent_name=agent_name,
-            )
-            for agent_name in self.agent_names
-        }
-
-    def step(self, command_dict):
-        action = command_dict[self.agent_names[0]]
-        # print(action)
-        raw_obs, reward, truncted, done, extra_info = self.env.step(action=np.array(action["meta_action"]).item())
-        self.total_reward += 1
-        if done or truncted:
-            summary.average("episode_reward", self.total_reward)
-            self.hist_rewards.append(self.total_reward)
-            if len(self.hist_rewards) >= 10:
-                mean = lambda x: sum(x) / len(x)
-                import os
-                import threading
-
-                self.logger.info(f"10 episode Over, Total reward is {mean(self.hist_rewards):.2f}")
-                # print(f"10 episode Over, Total reward is {mean(self.hist_rewards):.2f}")
-                self.hist_rewards.clear()
-
-        return {
-            agent_name: ObsData(
-                obs=raw_obs,
-                extra_info_dict={
-                    "reward": reward,
-                },
-                agent_name=agent_name,
-            )
-            for agent_name in self.agent_names
-        }, truncted or done
-
 class MinigameEnv:
 
     def __init__(self,
@@ -161,7 +111,7 @@ class MinigameEnv:
         all_units = self._get_units(obs.observation)
         self._last_marine_num = len(all_units[UnitType.TERRAN_MARINE])
         self.render(obs)
-        return {"minigame": ObsData(obs.observation)}
+        return {"minigame_agent": ObsData(obs.observation)}
 
     def step(self, command_dict: Dict[str, List[sc_pb.Action]]) -> Tuple[Any, bool, Dict]:
         """MinigameEnv 执行一步
@@ -184,7 +134,7 @@ class MinigameEnv:
         obs = self._controller.observe()
         self.render(obs)
         done = self._is_done(obs.observation)
-        return {"minigame": ObsData(obs.observation)}, done
+        return {"minigame_agent": ObsData(obs.observation)}, done
 
     def render(self, obs):
         if self._render:
@@ -328,7 +278,7 @@ class PipelineImplement:
     @staticmethod
     def feature_handler(data: ObsData, history: History):
         all_units = _get_units(data.obs)
-        marine_features = all_units
+        marine_features = _make_marine_features(all_units)
         enemy_features = _make_enemy_features(all_units)
         common_feaure_dict = _make_common_feature(all_units)
         enemy_mask_features = _make_mask_features(all_units, enemy_features)
@@ -388,6 +338,7 @@ class PipelineImplement:
 
         cmds = []
         # local move
+
         if data.action["meta"] == 0:
             for marine_tag in selected_marine_tags:
                 marine = marines[marine_tag]
@@ -405,6 +356,7 @@ class PipelineImplement:
                 baneline_tags = list(sorted(banelines.keys()))
                 zergling_tags = list(sorted(zerglings.keys()))
                 enemy_tags = baneline_tags + zergling_tags
+
                 target_enemy_tag = enemy_tags[data.action["target"]]
                 sc2_cmd = sc2_utils.unit_command_tag(
                     sc_pb.Action(), sc2_utils.Ability.ATTACK, target_enemy_tag, selected_marine_tags, False

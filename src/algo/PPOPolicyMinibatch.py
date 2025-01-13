@@ -1,4 +1,6 @@
 from __future__ import annotations
+from collections import defaultdict
+from email.policy import default
 from typing import Dict, Any, Union
 from torch import nn
 import torch
@@ -6,7 +8,7 @@ import tree
 from hyuRL.src.network.commander import ComplexNetwork
 from hyuRL.src.api.net.net import CommanderNetworkConfig
 from hyuRL.src.loss.ppo import PPOLoss
-from hyuRL.src.tools.common import construct
+from hyuRL.src.tools.common import construct, Summary
 
 def check_gradient_clipping(model, max_grad_norm):
     # 计算梯度范数
@@ -111,6 +113,10 @@ class PPOPolicy:
         return outputs
 
     def learn(self, training_data: Dict[str, Any]):
+        if self.advantage_normalize:
+            advantages = training_data['advantage']
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+            training_data['advantage'] = advantages
         def split_minibatch(nested_structure, batch_size: int, mini_batch_size: int):
             def get_minibatch(i, mini_batch_size):
                 start = i * mini_batch_size
@@ -120,13 +126,18 @@ class PPOPolicy:
 
         batch_size = len(training_data["value"])
         for epoch in range(self.epoch_num):
+            epoch_summary_dict = defaultdict(lambda: [])
             if self.minibatch_split:
-                # training_data = tree.map_structure(lambda x: x[torch.randperm(batch_size)], training_data)
                 for batch_data in split_minibatch(training_data, batch_size, batch_size//self.minibatch_split):
-                    self.batch_learn(batch_data)
+                    summary_dict = self.batch_learn(batch_data)
+                    for k, v in summary_dict.items():
+                        epoch_summary_dict[k].append(v)
             else:
                 self.batch_learn(training_data)
-        return {}
+            mean = lambda x: sum(x)/len(x)
+            epoch_summary_dict = {k: mean(v) for k, v in epoch_summary_dict.items()}
+            # print(f"{epoch}: ", epoch_summary_dict)
+        return epoch_summary_dict
 
     def batch_learn(self, training_data: Dict[str, Any]):
         inputs_dict = training_data["state_dict"]
@@ -135,9 +146,6 @@ class PPOPolicy:
         behavior_mask_dict = training_data.get("decoder_mask")
         behavior_values = training_data.get("value")
         advantages = training_data.get("advantage")
-        if self.advantage_normalize:
-            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-
         target_value = advantages + behavior_values
 
         with torch.no_grad():
@@ -160,7 +168,7 @@ class PPOPolicy:
         entropy_dict = self._network.entropy(logits_dict, behavior_mask_dict)
         entropy = torch.mean(sum(entropy_dict.values()))
         value = predict_output_dict["value"]
-        loss, policy_loss, value_loss, entropy_loss, ratio, clipped_fraction = (
+        loss, policy_loss, value_loss, entropy_loss, ratio_diff, clipped_fraction = (
             self._loss_fn(
                 old_log_prob=old_logp,
                 log_prob=logp,
@@ -173,15 +181,23 @@ class PPOPolicy:
         )
         self._optimizer.zero_grad()
         loss.backward()
-        total_norm_before, total_norm_after = check_gradient_clipping(
-            self._network, self.max_grad_norm
-        )
+        if self.max_grad_norm:
+            total_norm_before, total_norm_after = check_gradient_clipping(
+                self._network, self.max_grad_norm
+            )
+            # print(f"befor : {total_norm_before}, after: {total_norm_after}")
         self._optimizer.step()
         torch.cuda.empty_cache()  # 释放未使用的显存
-        return {
-            "loss": loss.detach(),
-            "policy_loss": policy_loss.detach(),
-            "value_loss": value_loss.detach(),
-            "entropy": entropy.detach(),
-            "clipped_fraction": clipped_fraction.detach(),
+        summary_dict = {
+            "loss": loss,
+            "policy_loss": policy_loss,
+            "value_loss": value_loss,
+            "entropy_loss": entropy_loss,
+            "entropy": entropy,
+            "ratio_diff": ratio_diff,
+            "clipped_fraction": clipped_fraction,
         }
+        summary_dict = {k:v.detach().cpu().numpy() for k, v in summary_dict.items()}
+        for k, v in summary_dict.items():
+            Summary.add_scaler(k, v)
+        return summary_dict

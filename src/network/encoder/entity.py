@@ -4,6 +4,7 @@ from typing import Tuple, Union
 
 from hyuRL.src.network.encoder.encoder import Encoder
 from hyuRL.src.network.layer.active_tool import make_active_layer
+from hyuRL.src.network.layer.mask import Mask
 
 class MaxPooling(nn.Module):
     def __init__(self, length, dim=1):
@@ -65,12 +66,17 @@ class EntityEncoder(Encoder):
             outputs: 编码后的实体特征
             entity_embeddings: 保留实体信息的embedding
         """
-        inputs_len = inputs.size(1)  # 假设inputs的形状为 [batch_size, seq_len, feature_size]
+        def get_inputs_len(inputs):
+            max_values = torch.max(torch.abs(inputs), dim=2).values  # 形状: [batch_size, seq_len]
+            inputs_len = torch.count_nonzero(max_values, dim=1)  # 形状: [batch_size]
+            return inputs_len
+
+        inputs_len = get_inputs_len(inputs) # 假设inputs的形状为 [batch_size, seq_len, feature_size]
 
         entity_embeddings = self._dense_sequence(inputs)
 
         # 应用Mask，这里需要自定义一个Mask函数或者使用PyTorch的PackedSequence来处理变长序列
-        # entity_embeddings = Mask(entity_embeddings, inputs_len)
+        entity_embeddings = Mask(entity_embeddings, inputs_len)
 
         if self._transformer is not None:
             entity_embeddings = self._transformer(entity_embeddings)

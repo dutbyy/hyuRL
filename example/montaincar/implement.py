@@ -1,14 +1,9 @@
-import gymnasium as gym
-import ale_py
-gym.register_envs(ale_py)
-from gymnasium.wrappers import AtariPreprocessing
-from gymnasium.wrappers import ClipReward
+
+import gymnasium
 import numpy as np
 from drill.pipeline.interface import ObsData, ActionData
 from drill import summary
 import logging
-from .atari_wrappers_ray import wrap_deepmind
-from .atari_wrappers_sb3 import AtariWrapper
 
 def getLogger(env_id):
     log_name = env_id if isinstance(env_id, str) else f"env-{env_id}"
@@ -25,27 +20,17 @@ def getLogger(env_id):
         pass
     return logger
 
-
-class GymEnv:
-    def __init__(self, env_id, atari_info, extra_info):
-        self.env_id = env_id
-        atari_env_args = atari_info.get("atari_env_args")
-        dim = atari_info.get("image_dim", 84)
-        # self.env = wrap_deepmind(gym.make(**atari_env_args), dim=dim, noframeskip=True)
-        # self.env = AtariWrapper(env=gym.make(**atari_env_args), dim=dim, frame_stack=1)
-        self.env = AtariPreprocessing(
-            env=gym.make(**atari_env_args),
-            screen_size=dim,
-            scale_obs=True,
-            grayscale_newaxis=True,
-        )
-        self.agent_names = atari_info.get("agent_names", [])
+class AcrobotEnv:
+    def __init__(self, env_id, extra_info):
+        self.env = gymnasium.make("MountainCar-v0")
+        self.agent_names = ["acdemo"]
         self.logger = getLogger(env_id)
+        self.hist_rewards = []
 
     def reset(self):
         self.total_reward = 0
-        self.step_num = 0
-        raw_obs, info = self.env.reset()
+
+        raw_obs, _ = self.env.reset()
         return {
             agent_name: ObsData(
                 obs = raw_obs,
@@ -58,25 +43,32 @@ class GymEnv:
         }
 
     def step(self, command_dict):
-        self.step_num += 1
         action = command_dict[self.agent_names[0]]
-        raw_obs, reward, terminated, truncated, info = self.env.step(action=action['meta_action'])
+        # print(action)
+        raw_obs, reward, truncted, done, extra_info = self.env.step(action=np.array(action['meta_action']).item())
         self.total_reward += reward
-        if terminated:
-            self.logger.info(f"episode Over, Total reward is {self.total_reward}")
+        if done or truncted:
             summary.average("episode_reward", self.total_reward)
+            self.hist_rewards.append(self.total_reward)
+            if len(self.hist_rewards) >= 10:
+                mean = lambda x : sum(x)/len(x)
+                import os
+                import threading
+                self.logger.info(f"10 episode Over, Total reward is {mean(self.hist_rewards):.2f}")
+                # print(f"10 episode Over, Total reward is {mean(self.hist_rewards):.2f}")
+                self.hist_rewards.clear()
+
         return {
-            agent_name: ObsData(
-                obs = raw_obs,
-                extra_info_dict={
-                    "reward": reward,
-                    "episode_reward": self.total_reward,
-                    "lives": info["lives"],
-                },
-                agent_name=agent_name,
-            )
-            for agent_name in self.agent_names
-        }, terminated
+                agent_name: ObsData(
+                    obs = raw_obs,
+                    extra_info_dict= {
+                        "reward": reward,
+                        "episode_reward": self.total_reward,
+                    },
+                    agent_name=agent_name
+                )
+                for agent_name in self.agent_names
+            }, truncted or done
 
 class PipelineImplement:
     @staticmethod

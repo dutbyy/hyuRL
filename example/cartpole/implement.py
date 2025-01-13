@@ -63,6 +63,7 @@ class CartpoleEnv:
                     obs = raw_obs,
                     extra_info_dict= {
                         "reward": reward,
+                        "episode_reward": self.total_reward,
                     },
                     agent_name=agent_name
                 )

@@ -42,9 +42,12 @@ class MeanMax(nn.Module):
 
 def get_mask(inputs: torch.Tensor) -> torch.Tensor:
     # [batch_size, ..., dim] -> [batch_size, ...]
-    max_abs_inputs = torch.max(torch.abs(inputs), dim=-1).values  # (batch_size, seq_len)
-    mask = torch.gt(max_abs_inputs, 0.0)  # (batch_size, seq_len)
-    mask = mask.to(dtype=torch.float32)  # (batch_size, seq_len)
+    # max_abs_inputs = torch.max(torch.abs(inputs), dim=-1).values  # (batch_size, seq_len)
+    # mask = torch.gt(max_abs_inputs, 0.0)  # (batch_size, seq_len)
+    # mask = mask.to(dtype=torch.float32)  # (batch_size, seq_len)
+
+    mask = (torch.max(torch.abs(inputs), dim=-1).values > 0.0).float()
+
     return mask
 
 
@@ -73,7 +76,7 @@ class SingleSelectiveDecoder(Decoder):
         )
         self.linear_seq = nn.Sequential(
             nn.Linear(2 * in_features, in_features),
-            make_active_layer(activation).
+            make_active_layer(activation),
             nn.Linear(in_features, in_features),
         )
 
@@ -91,19 +94,18 @@ class SingleSelectiveDecoder(Decoder):
         attention_score = self._add_attention((query, key))     # (batch_size, 1, seq_len)
 
         logits = attention_score.squeeze(1)                     # (batch_size, seq_len)
-        distribution = self.distribution(logits=logits)
 
+        # print(source_embeddings)
         mask = get_mask(source_embeddings)                      # (batch_size, seq_len) 0/1
         logits = apply_mask(logits, mask, mode="add")           # (batch_size, seq_len)
-
         if action_mask is not None:
             logits = apply_mask(logits, action_mask, mode="add")
 
+        distribution = self.distribution(logits=logits)
         if behavior_action is None:
             behavior_action:torch.Tensor = distribution.sample()
         behavior_action = behavior_action.long()                                    # (batch_size,)
         behavior_action_one_hot = nn.functional.one_hot(behavior_action, seq_len)   # (batch_size, seq_len)
-
         pooling = MeanMax()
         selected_embedding = pooling(source_embeddings, behavior_action_one_hot)    # (batch_size, in_features * 2)
         selected_embedding = self.linear_seq(selected_embedding)                    # (batch_size, in_features)
