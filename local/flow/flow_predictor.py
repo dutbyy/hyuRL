@@ -59,12 +59,12 @@ def common_deserialize(np_list: predictor_pb2.NumpyList) -> Dict[str, Union[np.n
     return data_dict
 
 
-def pretocuda(nested_structure):
+def pretocuda(nested_structure, cuda=True):
     import tree
 
     if torch.cuda.is_available():
         return tree.map_structure(lambda x: torch.from_numpy(x).cuda(), nested_structure)
-    return nested_structure
+    return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
 
 
 def convert_to_batch_state(states):
@@ -81,7 +81,7 @@ def convert_to_batch_state(states):
                 print(f"exception key is {key}")
                 raise e
 
-    return pretocuda(batch_state_dict)
+    return pretocuda(batch_state_dict, False)
 
 
 def split_outputs(results):
@@ -214,7 +214,9 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
 
             def batch_inference(requests):
                 inputs = convert_to_batch_state([it[0] for it in requests])
+                a = time.time() * 1e6
                 results = self._name2model[model_name].predict(inputs)
+                latency = time.time() * 1e6 - a
                 results = split_outputs(results)
                 for idx, (_, future) in enumerate(requests):
                     result = results[idx]

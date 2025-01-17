@@ -4,7 +4,7 @@ from hyuRL.src.api.net.net import *
 from hyuRL.src.flow.drill_plugin.interface.builder import ExBuilder
 from hyuRL.src.algo.PPOPolicy import PPOPolicy
 from hyuRL.example.minigame.implement import MinigameEnv
-from hyuRL.example.minigame.implement import PipelineImplement
+from hyuRL.example.minigame.implement import PipelineImplement, MonitorHandler
 from drill.pipeline import AgentPipeline, HandlerSpecies
 
 # marine 实体特征
@@ -15,7 +15,7 @@ marine_feature_set = EntityFeatureSet(
         "x_loc": PlainFeature(),
         "y_loc": PlainFeature(),
     },
-    max_length=9,
+    max_length=15,
 )
 
 # enemy 实体特征，包括 Baneling, Zergling
@@ -95,6 +95,10 @@ pipeline = {
                 ),
                 HandlerSpecies.REWARD: PipelineImplement.reward_handler,
                 HandlerSpecies.ACTION: PipelineImplement.action_handler,
+                HandlerSpecies.MONITOR: {
+                    "class": MonitorHandler,
+                    "params": {}
+                },
             },
             "batch_config": {  # advantage
                 "gamma": 0.99,
@@ -109,7 +113,9 @@ agents = {"minigame_agent": {"model": "minigame_model", "pipeline": "minigame_pi
 
 env = {
     "class": MinigameEnv,
-    "params": {},
+    "params": {
+        # "render": True,
+    },
 }
 
 builder = ExBuilder(agents, model_config, env, pipeline)

@@ -1,9 +1,10 @@
-# builder = None
+builder = None
 from hyuRL.example.cartpole.config import builder
 from hyuRL.src.flow.drill_plugin.interface.flow_model import FlowModelPPO
 from hyuRL.src.flow.drill_plugin.interface.flow_env import FlowEnvImp as FlowEnvPPO
 
 flow_config = {
+    'framework': "pytorch",
     'algorithm': {'flow_env': FlowEnvPPO, 'flow_model': FlowModelPPO},
     'builder': builder,
     'actor_config': {
@@ -14,10 +15,11 @@ flow_config = {
                     'fragment_size': 512,
                     'replay_size': 1,
                     'sample_batch_size': 4096,
+                    'sync': False,
                     'max_data_reuse': 0,
                     'putback_replays': False,
                     'sample_mode': "LIFO",
-                    'replay_buffer_size': 16,
+                    'replay_buffer_size': 1,
                 },
             ],
             'inference_models': None,

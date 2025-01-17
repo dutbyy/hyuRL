@@ -2,7 +2,6 @@ import gymnasium as gym
 import ale_py
 gym.register_envs(ale_py)
 from gymnasium.wrappers import AtariPreprocessing
-from gymnasium.wrappers import ClipReward
 import numpy as np
 from drill.pipeline.interface import ObsData, ActionData
 from drill import summary
@@ -31,14 +30,14 @@ class GymEnv:
         self.env_id = env_id
         atari_env_args = atari_info.get("atari_env_args")
         dim = atari_info.get("image_dim", 84)
-        # self.env = wrap_deepmind(gym.make(**atari_env_args), dim=dim, noframeskip=True)
+        self.env = wrap_deepmind(gym.make(**atari_env_args), dim=dim, noframeskip=True)
         # self.env = AtariWrapper(env=gym.make(**atari_env_args), dim=dim, frame_stack=1)
-        self.env = AtariPreprocessing(
-            env=gym.make(**atari_env_args),
-            screen_size=dim,
-            scale_obs=True,
-            grayscale_newaxis=True,
-        )
+        # self.env = AtariPreprocessing(
+        #     env=gym.make(**atari_env_args),
+        #     screen_size=dim,
+        #     scale_obs=True,
+        #     grayscale_newaxis=True,
+        # )
         self.agent_names = atari_info.get("agent_names", [])
         self.logger = getLogger(env_id)
 
@@ -51,6 +50,7 @@ class GymEnv:
                 obs = raw_obs,
                 extra_info_dict = {
                     "reward": 0.0,
+                    "done": False,
                 },
                 agent_name=agent_name
             )
@@ -63,14 +63,16 @@ class GymEnv:
         raw_obs, reward, terminated, truncated, info = self.env.step(action=action['meta_action'])
         self.total_reward += reward
         if terminated:
-            self.logger.info(f"episode Over, Total reward is {self.total_reward}")
+            self.logger.info(f"episode Over, clipped reward is {self.total_reward}")
             summary.average("episode_reward", self.total_reward)
+            self.logger.info(f"episode Over, natural reward is {info['nature_episode_reward']}")
+            summary.average("episode_natural_reward", info['nature_episode_reward'])
         return {
             agent_name: ObsData(
                 obs = raw_obs,
                 extra_info_dict={
                     "reward": reward,
-                    "episode_reward": self.total_reward,
+                    "episode_reward": info['nature_episode_reward'],
                     "lives": info["lives"],
                 },
                 agent_name=agent_name,

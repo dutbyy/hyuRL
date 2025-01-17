@@ -91,6 +91,14 @@ class UnorderedMultiSelective(nn.Module):
         neg_logp = torch.sum(neg_logp, dim=-1)  # 沿最后一维求和
         return neg_logp
 
+    def log_prob(self, action):
+        action = action.to(dtype=self._logits.dtype)
+        neg_logp = F.binary_cross_entropy_with_logits(
+            input=self._logits, target=action, reduction='none'
+        )
+        log_prob = -torch.sum(neg_logp, dim=-1)  # 沿最后一维求和
+        return log_prob
+
     def entropy(self):
         probs = torch.sigmoid(self._logits)
         entropy = F.binary_cross_entropy_with_logits(

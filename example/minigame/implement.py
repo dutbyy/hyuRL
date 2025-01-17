@@ -1,7 +1,8 @@
-import gymnasium
 import numpy as np
 from drill.pipeline.interface import ObsData, ActionData, History
 from drill import summary
+from drill.pipeline import BaseHandler
+
 from typing import Dict, List, Any, Tuple
 import logging
 from absl import flags
@@ -275,6 +276,7 @@ def _make_marine_features(all_units: Dict[str, Dict]) -> List[Dict]:
 
 
 class PipelineImplement:
+    total_reward  = 0
     @staticmethod
     def feature_handler(data: ObsData, history: History):
         all_units = _get_units(data.obs)
@@ -323,7 +325,11 @@ class PipelineImplement:
                     # in range [-1, 0]
                     reward += (health_diff_score * health_sum_score) / 4
         history.agents_history[data.agent_name].last()["reward"] = reward
-
+        PipelineImplement.total_reward += reward
+        if data.extra_info_dict["episode_done"]:
+            # print(f"episode total reward is {PipelineImplement.total_reward }")
+            data.extra_info_dict["episode_reward"] = PipelineImplement.total_reward
+            PipelineImplement.total_reward = 0
         return reward
 
     @staticmethod
@@ -366,3 +372,18 @@ class PipelineImplement:
                 cmds.append(sc2_cmd)
         data.action["cmds"] = cmds
         return data
+
+
+class MonitorHandler(BaseHandler):
+
+    def __init__(self) -> None:
+        self._episode_reward = 0
+
+    def handle(self, data: ObsData, history: History):
+        self._episode_reward += history.agents_history[data.agent_name].last()["reward"]
+        if data.extra_info_dict["episode_done"]:
+            summary.average("episode_reward", self._episode_reward)
+            # print(f"episode reward is {self._episode_reward}")
+
+    def reset(self):
+        self._episode_reward = 0

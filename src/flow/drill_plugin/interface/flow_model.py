@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List
-
+import time
 from drill.flow import flow
-
 import logging
 import numpy as np
 import tree
@@ -34,11 +33,12 @@ def getLogger(env_id):
     return logger
 
 # 定义一个递归函数来处理嵌套结构
-def trans2tensor(nested_structure):
-    if torch.cuda.is_available():
-        return nested_structure
+def trans2tensor(nested_structure, device='cpu'):
+    if device =='cuda' and torch.cuda.is_available():
+        return tree.map_structure(lambda x: torch.as_tensor(x).cuda(), nested_structure)
     else:
         return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
+
 
 # 定义一个递归函数来处理嵌套结构
 def trans2numpy(nested_structure):
@@ -136,7 +136,7 @@ class FlowModelPPO(flow.Model):
         training_data = {"state_dict": state_dict}
         training_data.update(behavior_info_dict)
 
-        training_data = trans2tensor(training_data)
+        training_data = trans2tensor(training_data, self._model.device)
         summary_dict = self._model.learn(training_data)
 
         for k, v in summary_dict.items():
@@ -146,12 +146,12 @@ class FlowModelPPO(flow.Model):
             if hasattr(self, "_save_params") and self._learn_step % self._save_params["interval"] == 0:
                 self.save_weights(self._save_params["mode"])
                 self.logger.info("saving weights of model.")
-
+        summary.sum(f"{self._model_name}_learn_step", 1, source="origin")
         self._learn_step += 1
         return True
 
     def predict(self, state_dict: Dict[str, Any]) -> Dict[str, Any]:
-        state_dict = trans2tensor(state_dict)
+        state_dict = trans2tensor(state_dict, self._model.device)
         predict_output_dict = self._model.predict(state_dict)
         output_dict = tree.map_structure(lambda x: x.cpu().detach().numpy(), predict_output_dict)
         return output_dict

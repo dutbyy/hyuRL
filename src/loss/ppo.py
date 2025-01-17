@@ -72,9 +72,9 @@ class PPOLoss(nn.Module):
         policy_loss_unclip = advantage * ratio
         clipped_ratio = torch.clamp(ratio, 1 - self._clip_epsilon, 1 + self._clip_epsilon)
         policy_loss_clip = advantage * clipped_ratio
-        surrogate_loss = -torch.min(policy_loss_unclip, policy_loss_clip)
-        policy_loss = surrogate_loss.mean()
+        surrogate_loss = torch.min(policy_loss_unclip, policy_loss_clip)
 
+        policy_loss = -surrogate_loss.mean()
         clipped_mask = (policy_loss_unclip != surrogate_loss).float()
         clipped_fraction = clipped_mask.mean()
 

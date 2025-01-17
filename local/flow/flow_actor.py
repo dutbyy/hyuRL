@@ -31,12 +31,12 @@ class SingleActor:
         self.data_size = data_size
 
         self.predictor: PredictorClient = PredictorClient("localhost", 50051)
-        self.fragment_size = 129
+        self.fragment_size = 257
         self.flow_config = flow_config
         self.env_desc = env_desc
 
     async def run(self):
-        await asyncio.gather(*[self.start_one_task(idx) for idx in range(4)])
+        await asyncio.gather(*[self.start_one_task(idx) for idx in range(1)])
 
     async def start_one_task(self, idx):
         self.env_desc.environment_id_on_this_task += idx

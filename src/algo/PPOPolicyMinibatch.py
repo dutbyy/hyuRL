@@ -69,7 +69,7 @@ class PPOPolicy:
         max_grad_norm: float = 0.5,
         epoch_num: int = 8,
         minibatch_split: int = 4,
-        adv_norm: bool = False,
+        adv_norm: bool = True,
     ):
 
         self.device = (
@@ -82,6 +82,7 @@ class PPOPolicy:
         self.minibatch_split = minibatch_split
         if isinstance(network_config, CommanderNetworkConfig):
             self._network = ComplexNetwork(network_config)
+            # self._network = torch.compile(ComplexNetwork(network_config))
         elif isinstance(network_config, Dict):
             self._network = construct(network_config)
         elif isinstance(network_config, type) and issubclass(network_config, nn.Module):
@@ -113,10 +114,7 @@ class PPOPolicy:
         return outputs
 
     def learn(self, training_data: Dict[str, Any]):
-        if self.advantage_normalize:
-            advantages = training_data['advantage']
-            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-            training_data['advantage'] = advantages
+
         def split_minibatch(nested_structure, batch_size: int, mini_batch_size: int):
             def get_minibatch(i, mini_batch_size):
                 start = i * mini_batch_size
@@ -147,7 +145,8 @@ class PPOPolicy:
         behavior_values = training_data.get("value")
         advantages = training_data.get("advantage")
         target_value = advantages + behavior_values
-
+        if self.advantage_normalize:
+            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
         with torch.no_grad():
             old_logp_dict_running = self._network.log_probs(
                 behavior_logits_dict, behavior_action_dict, behavior_mask_dict
@@ -165,8 +164,12 @@ class PPOPolicy:
         logp = sum(logp_dict.values())
 
         # 计算当前策略的熵
+        # print("logits_dict", logits_dict)
         entropy_dict = self._network.entropy(logits_dict, behavior_mask_dict)
         entropy = torch.mean(sum(entropy_dict.values()))
+        # print(entropy_dict)
+        # entropy = torch.mean(torch.stack(list(entropy_dict.values())), dim=0)
+        # print(f"entropy is {entropy}")
         value = predict_output_dict["value"]
         loss, policy_loss, value_loss, entropy_loss, ratio_diff, clipped_fraction = (
             self._loss_fn(
@@ -197,6 +200,7 @@ class PPOPolicy:
             "ratio_diff": ratio_diff,
             "clipped_fraction": clipped_fraction,
         }
+
         summary_dict = {k:v.detach().cpu().numpy() for k, v in summary_dict.items()}
         for k, v in summary_dict.items():
             Summary.add_scaler(k, v)

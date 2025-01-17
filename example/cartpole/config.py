@@ -30,6 +30,10 @@ model_config = {
         "params": {
             "network_config": network_cfg,  # 神经网络结构
             "device": "cuda",
+            "epoch_num": 10,
+            "minibatch_split": 4,
+            "entropy_coef": 0.0,
+            "eps": 1e-5,
         },
         "save": {
             "interval": 100,  # 模型存储间隔，即网络更新多少次存储一次模型

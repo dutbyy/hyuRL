@@ -125,7 +125,9 @@ def batch_inference(flow_model, agent_name_to_states):
     def trans2tensor(nested_structure):
         import tree
         import torch
-        return tree.map_structure(lambda x: torch.from_numpy(x).cuda(), nested_structure)
+        # if torch.cuda.is_available():
+        #     return tree.map_structure(lambda x: torch.from_numpy(x).cuda(), nested_structure)
+        return nested_structure
     batch_states = trans2tensor(batch_states)
     batch_outputs = flow_model.predict(batch_states)
     split_outputs = split_output(batch_outputs)

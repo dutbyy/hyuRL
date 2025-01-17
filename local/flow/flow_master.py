@@ -37,7 +37,7 @@ def trans2tensor(nested_structure):
 class LocalMaster:
     def __init__(self, flow_config: Dict, epoch_num=10, sample_size=128, env_num=4, batch_size=64, save_interval=10):
         self.predictor = PredictorClient("localhost", 50051, False)
-        self.actor = Actor(env_num=4, flow_config=flow_config)
+        self.actor = Actor(env_num=env_num, flow_config=flow_config)
         self.learner = LocalLearner(flow_config)
         self.env_num = env_num
         self.sample_size = sample_size
@@ -88,6 +88,6 @@ def main(flow_config):
 if __name__ == "__main__":
     from hyuRL.local.flow.env_config import flow_config
     from hyuRL.src.tools.common import Summary
-    Summary.setpath('beamrider-v4-gymnasium-env')
+    Summary.setpath('minigame-v1-env')
     fix_print()
     main(flow_config)
