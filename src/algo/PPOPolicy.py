@@ -135,12 +135,10 @@ class PPOPolicy:
         logp = sum(logp_dict.values())
 
         # 计算当前策略的熵
-        print(logits_dict)
         entropy_dict = self._network.entropy(logits_dict, behavior_mask_dict)
-        # entropy = torch.mean(sum(entropy_dict.values()))
-        entropy = torch.mean(torch.stack(list(entropy_dict.values())), dim=0)
+        entropy = torch.mean(sum(entropy_dict.values()))
         print(f"entropy is {entropy}")
-
+        print(f"entropy is {entropy}")
         value = predict_output_dict["value"]
         loss, policy_loss, value_loss, entropy_loss, ratio_diff, clipped_fraction = (
             self._loss_fn(

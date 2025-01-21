@@ -10,12 +10,11 @@ from hyuRL.src.api.net.net import CommanderNetworkConfig
 from hyuRL.src.loss.ppo import PPOLoss
 from hyuRL.src.tools.common import construct, Summary
 
+
 def check_gradient_clipping(model, max_grad_norm):
     # 计算梯度范数
     total_norm_before = torch.norm(
-        torch.stack(
-            [torch.norm(p.grad) for p in model.parameters() if p.grad is not None]
-        ),
+        torch.stack([torch.norm(p.grad) for p in model.parameters() if p.grad is not None]),
         2.0,
     )
 
@@ -24,9 +23,7 @@ def check_gradient_clipping(model, max_grad_norm):
 
     # 计算裁剪后的梯度范数
     total_norm_after = torch.norm(
-        torch.stack(
-            [torch.norm(p.grad) for p in model.parameters() if p.grad is not None]
-        ),
+        torch.stack([torch.norm(p.grad) for p in model.parameters() if p.grad is not None]),
         2.0,
     )
 
@@ -72,9 +69,7 @@ class PPOPolicy:
         adv_norm: bool = True,
     ):
 
-        self.device = (
-            device if (device != "cpu" and torch.cuda.is_available()) else "cpu"
-        )
+        self.device = device if (device != "cpu" and torch.cuda.is_available()) else "cpu"
         print(f"PPOPolciy.device is {self.device}")
         self.trainning = trainning
         self.advantage_normalize = adv_norm
@@ -91,9 +86,7 @@ class PPOPolicy:
             raise TypeError(f"Unsupport Network Config. [{network_config}] ")
 
         self._network.to(self.device)
-        self._optimizer = torch.optim.Adam(
-            self._network.parameters(), lr=learning_rate, eps=eps
-        )
+        self._optimizer = torch.optim.Adam(self._network.parameters(), lr=learning_rate, eps=eps)
         self._loss_fn = PPOLoss(
             clip_epsilon=clip_epsilon,
             value_clip=value_clip,
@@ -120,19 +113,20 @@ class PPOPolicy:
                 start = i * mini_batch_size
                 end = (i + 1) * mini_batch_size
                 return tree.map_structure(lambda x: x[start:end], nested_structure)
+
             return [get_minibatch(i, mini_batch_size) for i in range(batch_size // mini_batch_size)]
 
         batch_size = len(training_data["value"])
         for epoch in range(self.epoch_num):
             epoch_summary_dict = defaultdict(lambda: [])
             if self.minibatch_split:
-                for batch_data in split_minibatch(training_data, batch_size, batch_size//self.minibatch_split):
+                for batch_data in split_minibatch(training_data, batch_size, batch_size // self.minibatch_split):
                     summary_dict = self.batch_learn(batch_data)
                     for k, v in summary_dict.items():
                         epoch_summary_dict[k].append(v)
             else:
                 self.batch_learn(training_data)
-            mean = lambda x: sum(x)/len(x)
+            mean = lambda x: sum(x) / len(x)
             epoch_summary_dict = {k: mean(v) for k, v in epoch_summary_dict.items()}
             # print(f"{epoch}: ", epoch_summary_dict)
         return epoch_summary_dict
@@ -153,41 +147,30 @@ class PPOPolicy:
             )
             old_logp = sum(old_logp_dict_running.values())
 
-        predict_output_dict = self._network(
-            inputs_dict, behavior_action_dict, training=True
-        )
+        predict_output_dict = self._network(inputs_dict, behavior_action_dict, training=True)
         logits_dict = predict_output_dict["logits"]
 
-        logp_dict = self._network.log_probs(
-            logits_dict, behavior_action_dict, behavior_mask_dict
-        )
+        logp_dict = self._network.log_probs(logits_dict, behavior_action_dict, behavior_mask_dict)
         logp = sum(logp_dict.values())
 
         # 计算当前策略的熵
-        # print("logits_dict", logits_dict)
         entropy_dict = self._network.entropy(logits_dict, behavior_mask_dict)
         entropy = torch.mean(sum(entropy_dict.values()))
-        # print(entropy_dict)
-        # entropy = torch.mean(torch.stack(list(entropy_dict.values())), dim=0)
-        # print(f"entropy is {entropy}")
-        value = predict_output_dict["value"]
-        loss, policy_loss, value_loss, entropy_loss, ratio_diff, clipped_fraction = (
-            self._loss_fn(
-                old_log_prob=old_logp,
-                log_prob=logp,
-                advantage=advantages,
-                old_value=behavior_values,
-                value=value,
-                target_value=target_value,
-                entropy=entropy,
-            )
+
+        values = predict_output_dict["value"]
+        loss, policy_loss, value_loss, entropy_loss, ratio_diff, clipped_fraction = self._loss_fn(
+            old_log_prob=old_logp,
+            log_prob=logp,
+            advantage=advantages,
+            old_value=behavior_values,
+            value=values,
+            target_value=target_value,
+            entropy=entropy,
         )
         self._optimizer.zero_grad()
         loss.backward()
         if self.max_grad_norm:
-            total_norm_before, total_norm_after = check_gradient_clipping(
-                self._network, self.max_grad_norm
-            )
+            total_norm_before, total_norm_after = check_gradient_clipping(self._network, self.max_grad_norm)
             # print(f"befor : {total_norm_before}, after: {total_norm_after}")
         self._optimizer.step()
         torch.cuda.empty_cache()  # 释放未使用的显存
@@ -200,8 +183,7 @@ class PPOPolicy:
             "ratio_diff": ratio_diff,
             "clipped_fraction": clipped_fraction,
         }
-
-        summary_dict = {k:v.detach().cpu().numpy() for k, v in summary_dict.items()}
+        summary_dict = {k: v.detach().cpu().numpy() for k, v in summary_dict.items()}
         for k, v in summary_dict.items():
             Summary.add_scaler(k, v)
         return summary_dict
