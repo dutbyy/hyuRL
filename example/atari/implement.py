@@ -31,13 +31,6 @@ class GymEnv:
         atari_env_args = atari_info.get("atari_env_args")
         dim = atari_info.get("image_dim", 84)
         self.env = wrap_deepmind(gym.make(**atari_env_args), dim=dim, noframeskip=True)
-        # self.env = AtariWrapper(env=gym.make(**atari_env_args), dim=dim, frame_stack=1)
-        # self.env = AtariPreprocessing(
-        #     env=gym.make(**atari_env_args),
-        #     screen_size=dim,
-        #     scale_obs=True,
-        #     grayscale_newaxis=True,
-        # )
         self.agent_names = atari_info.get("agent_names", [])
         self.logger = getLogger(env_id)
 
@@ -62,7 +55,9 @@ class GymEnv:
         action = command_dict[self.agent_names[0]]
         raw_obs, reward, terminated, truncated, info = self.env.step(action=action['meta_action'])
         self.total_reward += reward
-        if terminated:
+        done = False
+        if terminated and info['lives'] <= 0:
+            done = True
             self.logger.info(f"episode Over, clipped reward is {self.total_reward}")
             summary.average("episode_reward", self.total_reward)
             self.logger.info(f"episode Over, natural reward is {info['nature_episode_reward']}")
@@ -74,6 +69,7 @@ class GymEnv:
                     "reward": reward,
                     "episode_reward": info['nature_episode_reward'],
                     "lives": info["lives"],
+                    "done": done,
                 },
                 agent_name=agent_name,
             )

@@ -34,6 +34,7 @@ model_config = {
             "minibatch_split": 4,
             "entropy_coef": 0.0,
             "eps": 1e-5,
+            "max_grad_norm": 1000,
         },
         "save": {
             "interval": 100,  # 模型存储间隔，即网络更新多少次存储一次模型
