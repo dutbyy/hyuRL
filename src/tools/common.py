@@ -1,5 +1,6 @@
 from collections import defaultdict
 from typing import Dict
+from torch.utils.tensorboard import SummaryWriter
 
 
 def is_class_dict(class_dict: Dict):
@@ -72,3 +73,18 @@ class Singleton(type):
     def print_info(self):
         print(f"Infer times: {self.infer_times}")
 
+
+class Summary:
+    step_dict = defaultdict(lambda: 0)
+    writer:  SummaryWriter = SummaryWriter("/job/logs/tensorboard/")
+
+    @classmethod
+    def setpath(cls, subpath):
+        cls.writer:  SummaryWriter = SummaryWriter(f"/job/logs/tensorboard/{subpath}")
+
+    @classmethod
+    def add_scaler(cls, key, value, global_step=None, wall_time=None):
+        if not global_step:
+            cls.step_dict[key] = cls.step_dict[key] + 1
+            global_step = cls.step_dict[key]
+        cls.writer.add_scalar(key, value, global_step, wall_time)
