@@ -17,8 +17,8 @@ def fix_print():
 def exmain():
     # import drill
     # drill.local_run = True
-    from hyuRL.src.tools.infer import inference, init_env, init_model
-    from hyuRL.example.minigame.entry import flow_config
+    from hyurl.tools.infer import inference, init_env, init_model
+    from example.minigame.entry import flow_config
     model_path_dict = {}
     flow_env = init_env(flow_config=flow_config, env_id=1)
     name2model = init_model(flow_config=flow_config, model_path_dict=model_path_dict)

@@ -1,10 +1,10 @@
-from hyuRL.src.feature.feature import *
-from hyuRL.src.feature.feature_set import *
-from hyuRL.src.api.net.net import *
-from hyuRL.src.flow.drill_plugin.interface.builder import ExBuilder
-from hyuRL.src.algo.PPOPolicy import PPOPolicy
-from hyuRL.example.minigame.implement import MinigameEnv
-from hyuRL.example.minigame.implement import PipelineImplement, MonitorHandler
+from hyurl.feature.feature import *
+from hyurl.feature.feature_set import *
+from hyurl.api.net.net import *
+from hyurl.flow.drill_plugin.interface.builder import ExBuilder
+from hyurl.algo.PPOPolicy import PPOPolicy
+from example.minigame.implement import MinigameEnv
+from example.minigame.implement import PipelineImplement, MonitorHandler
 from drill.pipeline import AgentPipeline, HandlerSpecies
 
 # marine 实体特征

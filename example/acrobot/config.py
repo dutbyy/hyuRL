@@ -1,10 +1,10 @@
-from hyuRL.src.feature.feature import *
-from hyuRL.src.feature.feature_set import *
-from hyuRL.src.api.net.net import *
-from hyuRL.src.flow.drill_plugin.interface.builder import ExBuilder
-from hyuRL.src.algo.PPOPolicy import PPOPolicy
-from hyuRL.example.acrobot.implement import AcrobotEnv
-from hyuRL.example.acrobot.implement import PipelineImplement
+from hyurl.feature.feature import *
+from hyurl.feature.feature_set import *
+from hyurl.api.net.net import *
+from hyurl.flow.drill_plugin.interface.builder import ExBuilder
+from hyurl.algo.PPOPolicy import PPOPolicy
+from example.acrobot.implement import AcrobotEnv
+from example.acrobot.implement import PipelineImplement
 from drill.pipeline import AgentPipeline, HandlerSpecies
 
 network_cfg = CommanderNetworkConfig(

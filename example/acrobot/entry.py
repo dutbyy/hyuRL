@@ -1,7 +1,7 @@
 # builder = None
-from hyuRL.example.acrobot.config import builder
-from hyuRL.src.flow.drill_plugin.interface.flow_model import FlowModelPPO
-from hyuRL.src.flow.drill_plugin.interface.flow_env import FlowEnvImp as FlowEnvPPO
+from example.acrobot.config import builder
+from hyurl.flow.drill_plugin.interface.flow_model import FlowModelPPO
+from hyurl.flow.drill_plugin.interface.flow_env import FlowEnvImp as FlowEnvPPO
 
 flow_config = {
     'framework': "pytorch",

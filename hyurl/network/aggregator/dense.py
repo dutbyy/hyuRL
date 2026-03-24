@@ -1,0 +1,29 @@
+from typing import List, Tuple
+import torch
+import torch.nn as nn
+from .aggregator import Aggregator
+from hyurl.network.layer.active_tool import make_active_layer
+
+
+class DenseAggregator(Aggregator):
+    def __init__(self, in_features: int, hidden_layer_sizes: List[int], output_size: int, activation="relu"):
+        super().__init__()
+        layers = []
+
+        layer_sizes = [in_features] + hidden_layer_sizes
+        # 为后续层添加线性层、ReLU和LayerNorm
+        for in_f, out_f in zip(layer_sizes[:-1], layer_sizes[1:]):
+            layers.append(nn.Linear(in_f, out_f))
+            layers.append(make_active_layer(activation))
+        layers.append(nn.Linear(layer_sizes[-1], output_size))
+        self._dense_sequence = nn.Sequential(*layers)
+
+    def forward(
+        self,
+        inputs: torch.Tensor,
+        initial_state=None,
+        seq_len: int = 1,
+        training: bool = False,
+    ) -> Tuple[torch.Tensor, None]:
+        outputs = self._dense_sequence(inputs)
+        return outputs, initial_state

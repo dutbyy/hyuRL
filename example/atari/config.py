@@ -1,11 +1,11 @@
-from hyuRL.src.feature.feature import *
-from hyuRL.src.feature.feature_set import *
-from hyuRL.src.api.net.net import *
-from hyuRL.src.flow.drill_plugin.interface.builder import ExBuilder
-# from hyuRL.src.algo.PPOPolicy import PPOPolicy
-from hyuRL.src.algo.PPOPolicyMinibatch import PPOPolicy
-from hyuRL.example.atari.implement import GymEnv
-from hyuRL.example.atari.implement import PipelineImplement
+from hyurl.feature.feature import *
+from hyurl.feature.feature_set import *
+from hyurl.api.net.net import *
+from hyurl.flow.drill_plugin.interface.builder import ExBuilder
+# from hyurl.algo.PPOPolicy import PPOPolicy
+from hyurl.algo.PPOPolicyMinibatch import PPOPolicy
+from example.atari.implement import GymEnv
+from example.atari.implement import PipelineImplement
 from drill.pipeline import AgentPipeline, HandlerSpecies
 from .network import ActorCriticCnn
 network_cfg = CommanderNetworkConfig(

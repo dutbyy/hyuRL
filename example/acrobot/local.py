@@ -17,8 +17,8 @@ def fix_print():
 def exmain():
     # import drill
     # drill.local_run = True
-    from hyuRL.src.tools.infer import inference, init_env, init_model
-    from hyuRL.example.cartpole.config import builder
+    from hyurl.tools.infer import inference, init_env, init_model
+    from example.cartpole.config import builder
     model_path_dict = {"cp_model": "/job/model/cp_model/cp_model_200.pth"}
     flow_env = init_env(builder=builder, env_id=1)
     name2model = init_model(builder, model_path_dict)

@@ -18,8 +18,8 @@ def fix_print():
 
 
 def exmain():
-    from hyuRL.src.tools.infer import inference, init_env, init_model
-    from hyuRL.example.atari.entry import flow_config
+    from hyurl.tools.infer import inference, init_env, init_model
+    from example.atari.entry import flow_config
 
     # model_path_dict = {"cp_model": "/job/model/cp_model/cp_model_200.pth"}
     model_path_dict = {}
