@@ -27,7 +27,7 @@ class ExBuilder(Builder):
         self._agents = agents
         self._models = models
         self._env = env
-        self._pipeline = pipeline
+        self._pipeline: dict[str, dict] = pipeline
         self._save_params = {}
         self._learn_step = 0
         self._backend = backend
@@ -76,23 +76,19 @@ class ExBuilder(Builder):
         self._save_params[model_name] = {
             'interval': model_config["save"].get('interval', 100),
             'mode': model_config["save"].get('mode', 'npz'),
-            'path': '/job/model',
+            'path': './model',
         }
         return model
 
     def build_pipeline(self):
-        from drill.pipeline import GlobalPipeline
-        from drill.pipeline.pipeline_manager import PipelineManager
+        from hyurl.api.agent.pipeline_manager import PipelineManager
         ap_info = {}
         for name, setup in self._agents.items():
-            ap_info[name] = self._pipeline[setup['pipeline']]
+            ap_info[name] = construct(self._pipeline[setup['pipeline']])
 
-        template = {"class": GlobalPipeline, "params": {}}
-        global_info = self._pipeline.get('global', template)
-        history_len = self._pipeline.get('history_len', 3)
-        pipeline_ = PipelineManager(ap_info, construct(global_info), history_len)
+        pipeline_ = PipelineManager(ap_info)
         return pipeline_
 
-    def get_initial_state(self, agent_name):
-        hidden_state_dict = {}
-        return hidden_state_dict
+    # def get_initial_state(self, agent_name):
+    #     hidden_state_dict = {}
+    #     return hidden_state_dict

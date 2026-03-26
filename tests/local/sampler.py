@@ -1,105 +1,93 @@
-import torch
-import numpy as np
-from typing import List, Dict, Any, Tuple
+from __future__ import annotations
+
+import time
+import pickle
+import logging
 from collections import defaultdict
-from .env import CartPoleEnv
+from typing import Dict, Any
 
+from hyurl.flow.drill_plugin.api.flow_api import EnvironmentDescriptor
+from hyurl.tools.common import timer_decorator, fix_print
+from hyurl.tools.common import Summary
 
-class Transition:
-    def __init__(
-        self,
-        observation: np.ndarray,
-        action: int,
-        reward: float,
-        next_observation: np.ndarray,
-        done: bool,
-        value: float,
-        logits: Dict[str, torch.Tensor],
-    ):
-        self.observation = observation
-        self.action = action
-        self.reward = reward
-        self.next_observation = next_observation
-        self.done = done
-        self.value = value
-        self.logits = logits
+mean = lambda x: sum(x)/len(x)
 
+class LocalSampler:
+    def __init__(self, flow_config):
+        self.flow_config = flow_config
+        self.flow_env = None
+        self.flow_models = {}
+        self.logger = logging.getLogger("Sampler")
+        self.env_desc = EnvironmentDescriptor(1, 1, 1, 0, 0, 0, {
+            "builder": self.flow_config['builder'],
+            "extra_info": {}
+        })
 
-class Sampler:
-    def __init__(self, model, env: CartPoleEnv, device: str = "cpu"):
-        self.model = model
-        self.env = env
-        self.device = device
-        self.transitions: List[Transition] = []
-        self.episode_rewards: List[float] = []
+    def reset(self):
+        self.flow_env = self.flow_config['algorithm']['flow_env'](self.env_desc)
+        self.flow_env.reset()
+        self.flow_models = {}
 
-    def collect(self, num_episodes: int = 1) -> List[Transition]:
-        self.transitions = []
-        self.episode_rewards = []
+    def get_batch(self, batch_size=512):
+        fragments = defaultdict(lambda: [])
+        datas = []
+        total_rewards = []
+        data_size = 0
+        fragment_size = 257
 
-        for episode in range(num_episodes):
-            observation, _ = self.env.reset()
-            episode_reward = 0.0
-            done = False
+        while data_size < batch_size:
+            state_dict = self.flow_env.observe()
+            if not state_dict:
+                self.flow_env.reset()
+                state_dict = self.flow_env.observe()
 
-            while not done:
-                obs_dict = self.env.get_observation_dict(observation)
-                with torch.no_grad():
-                    output = self.model(obs_dict, training=False)
+            episode_done = False
+            while not episode_done:
+                action_dict = {}
+                for agent_name, state in state_dict.items():
+                    model_name = state['model']
+                    if model_name not in self.flow_models:
+                        self.flow_models[model_name] = self.flow_config['algorithm']['flow_model'](model_name, self.flow_config['builder'])
+                        state_tuple = self.flow_models[model_name].__getstate__()
+                        self.flow_models[model_name].setstate_predict(state_tuple)
+                    outputs = self.flow_models[model_name].predict(state['obs'])
+                    action_dict[agent_name] = outputs
 
-                action_logits = output["logits"]["action"]
-                action_probs = torch.softmax(action_logits, dim=-1)
-                action = torch.multinomial(action_probs, 1).item()
+                decoder_mask_dict = {
+                    agent_name: self.flow_env.step(agent_name, agent_command_dict)
+                    for agent_name, agent_command_dict in action_dict.items()
+                }
+                nstate_dict: Dict[str, Dict[str, Any]] = self.flow_env.observe()
 
-                next_observation, reward, terminated, truncated, _ = self.env.step(action)
-                done = terminated or truncated
-                episode_reward += reward
+                if self.flow_env.reseted is not None:
+                    total_rewards.append(self.flow_env.reseted)
+                    self.flow_env.reseted = None
 
-                transition = Transition(
-                    observation=observation,
-                    action=action,
-                    reward=reward,
-                    next_observation=next_observation,
-                    done=done,
-                    value=output["value"].item(),
-                    logits={"action": action_logits.squeeze(0)},
-                )
-                self.transitions.append(transition)
+                piece = [state_dict, action_dict, decoder_mask_dict]
+                episode_done = False if nstate_dict else True
 
-                observation = next_observation
+                for agent_name in state_dict.keys():
+                    agent_piece = [piece[0][agent_name]['obs'], piece[1][agent_name], piece[2][agent_name]]
+                    fragments[agent_name].append(agent_piece)
 
-            self.episode_rewards.append(episode_reward)
+                for agent_name in state_dict.keys():
+                    agent_fragments = fragments[agent_name]
+                    if len(agent_fragments) >= fragment_size or episode_done:
+                        data_size += len(agent_fragments) - 1
+                        self.flow_env.enhance_fragment(agent_name, agent_fragments)
+                        datas.extend([pickle.dumps(item) for item in agent_fragments])
+                        fragments[agent_name].clear()
 
-        return self.transitions
+                        if not episode_done:
+                            agent_piece = [piece[0][agent_name]['obs'], piece[1][agent_name], piece[2][agent_name]]
+                            fragments[agent_name].append(agent_piece)
 
-    def get_batch(self, batch_size: int = 64) -> Dict[str, torch.Tensor]:
-        if len(self.transitions) < batch_size:
-            batch_size = len(self.transitions)
+                state_dict = nstate_dict
 
-        indices = np.random.choice(len(self.transitions), batch_size, replace=False)
+        if len(total_rewards) > 100:
+            total_rewards = total_rewards[-100:]
+        if len(total_rewards):
+            self.logger.info(f"average episode reward is {mean(total_rewards):.1f}")
+            Summary.add_scaler('episode_reward', mean(total_rewards))
 
-        observations = np.array([self.transitions[i].observation for i in indices])
-        actions = np.array([self.transitions[i].action for i in indices])
-        rewards = np.array([self.transitions[i].reward for i in indices])
-        next_observations = np.array([self.transitions[i].next_observation for i in indices])
-        dones = np.array([self.transitions[i].done for i in indices], dtype=np.float32)
-        values = np.array([self.transitions[i].value for i in indices])
-
-        return {
-            "observations": torch.from_numpy(observations).float(),
-            "actions": torch.from_numpy(actions).long(),
-            "rewards": torch.from_numpy(rewards).float(),
-            "next_observations": torch.from_numpy(next_observations).float(),
-            "dones": torch.from_numpy(dones).float(),
-            "values": torch.from_numpy(values).float(),
-        }
-
-    def get_statistics(self) -> Dict[str, float]:
-        if not self.episode_rewards:
-            return {}
-        return {
-            "mean_reward": np.mean(self.episode_rewards),
-            "max_reward": np.max(self.episode_rewards),
-            "min_reward": np.min(self.episode_rewards),
-            "num_episodes": len(self.episode_rewards),
-        }
+        return [pickle.loads(item) for item in datas]

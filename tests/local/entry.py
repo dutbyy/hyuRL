@@ -1,5 +1,4 @@
-builder = None
-from example.cartpole.config import builder
+from tests.local.config import builder
 from hyurl.flow.drill_plugin.interface.flow_model import FlowModelPPO
 from hyurl.flow.drill_plugin.interface.flow_env import FlowEnvImp as FlowEnvPPO
 
@@ -8,7 +7,7 @@ flow_config = {
     'algorithm': {'flow_env': FlowEnvPPO, 'flow_model': FlowModelPPO},
     'builder': builder,
     'actor_config': {
-        'actor_209': {
+        'actor_cartpole': {
             'training_models': [
                 {
                     'model_name': 'cp_model',
@@ -24,7 +23,7 @@ flow_config = {
             ],
             'inference_models': None,
             'episode_mode': False,
-            'env_num': 1,
+            'env_num': 40,
             'extra_info': {'index': 'training', 'description': 'used for training'},
         },
     },

@@ -20,7 +20,8 @@ VALUE = "value"
 HIDDEN_STATE = "hidden_state"
 
 
-is_class_dict = lambda class_dict : ("class" in class_dict) and ("params" in class_dict)
+is_class_dict = lambda class_dict: ("class" in class_dict) and ("params" in class_dict)
+
 
 def construct(class_dict: Dict):
     """根据 config dict, 从对应的 network component class 中实例化一个对应的网络组件"""
@@ -59,7 +60,7 @@ class ComplexNetwork(nn.Module):
 
     Args:
         network_config (_type_): _description_
-    """  
+    """
 
     def __init__(self, network_config):
         super().__init__()
@@ -216,4 +217,3 @@ class ComplexNetwork(nn.Module):
     #             encoder_output_list, initial_state=hidden_state, training=training
     #         )
     #     return aggregator_output, aggregator_state
-

@@ -3,18 +3,20 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List
 import time
-from drill.flow import flow
+# from drill.flow import flow
 import logging
 import numpy as np
 import tree
 import torch
 
-from drill import summary
-from drill.keys import ACTION_MASK, DECODER_MASK
-from drill.model import Model
-from drill.utils import get_hvd
+# from drill import summary
+# from drill.keys import ACTION_MASK, DECODER_MASK
+# from drill.model import Model
+# from drill.utils import get_hvd
 
-from drill.builder import Builder
+# from drill.builder import Builder
+ACTION_MASK = 'action_mask'
+DECODER_MASK = 'decoder_mask'
 
 
 def getLogger(env_id):
@@ -22,14 +24,15 @@ def getLogger(env_id):
     logger = logging.getLogger(f"env-{env_id}")
     logger.setLevel(20)
     formatter = logging.Formatter('[%(asctime)s] [%(filename)s:%(lineno)d] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-    try:
-        import os
-        os.system("mkdir -p /job/logs/user_log/")
-        handler = logging.FileHandler(f"/job/logs/user_log/{log_name}.log")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-    except:
-        pass
+    if not logger.handlers:
+        try:
+            import os
+            # # os.makedirs("./logs/user_log/", exist_ok=True)
+            # handler = logging.FileHandler(f"./logs/user_log/{log_name}.log")
+            # handler.setFormatter(formatter)
+            # logger.addHandler(handler)
+        except:
+            pass
     return logger
 
 # 定义一个递归函数来处理嵌套结构
@@ -37,16 +40,16 @@ def trans2tensor(nested_structure, device='cpu'):
     if device =='cuda' and torch.cuda.is_available():
         return tree.map_structure(lambda x: torch.as_tensor(x).cuda(), nested_structure)
     else:
-        return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
+        return tree.map_structure(lambda x: torch.as_tensor(x), nested_structure)
 
 
 # 定义一个递归函数来处理嵌套结构
 def trans2numpy(nested_structure):
     return tree.map_structure(lambda x: x.cpu().numpy(), nested_structure)
 
-class FlowModelPPO(flow.Model):
+class FlowModelPPO:
 
-    def __init__(self, model_name: str, builder: Builder):
+    def __init__(self, model_name: str, builder):
         self._init(model_name, builder)
         self.logger = getLogger(f"{model_name}-master")
 
@@ -139,14 +142,14 @@ class FlowModelPPO(flow.Model):
         training_data = trans2tensor(training_data, self._model.device)
         summary_dict = self._model.learn(training_data)
 
-        for k, v in summary_dict.items():
-            summary.average(f"{self._model_name}_{k}", v, source="origin")
+        # for k, v in summary_dict.items():
+        #     summary.average(f"{self._model_name}_{k}", v, source="origin")
         if True:
-            summary.sum(f"{self._model_name}_update_step", 1, source="origin")
+            # summary.sum(f"{self._model_name}_update_step", 1, source="origin")
             if hasattr(self, "_save_params") and self._learn_step % self._save_params["interval"] == 0:
                 self.save_weights(self._save_params["mode"])
                 self.logger.info("saving weights of model.")
-        summary.sum(f"{self._model_name}_learn_step", 1, source="origin")
+        # summary.sum(f"{self._model_name}_learn_step", 1, source="origin")
         self._learn_step += 1
         return True
 

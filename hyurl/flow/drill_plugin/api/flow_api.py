@@ -3,13 +3,12 @@
 """
 
 from __future__ import annotations
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, List, Any, Tuple, Optional, Union
+from typing import Dict, List, Any, Tuple, Union
 from numpy.typing import NDArray
 import numpy as np
 
-NestedNDArray = Union[NDArray, List[Any], Dict[str, Any]]
+NestedNDArray = Union[NDArray, list[Any], dict[str, Any]]
 
 
 @dataclass
@@ -20,7 +19,7 @@ class EnvironmentDescriptor:
     environment_id_on_this_node: int
     environment_id_on_this_actor: int
     environment_id_on_this_task: int
-    environment_creator_user_args: any
+    environment_creator_user_args: dict
 
 
 # Drill-限制
@@ -29,7 +28,7 @@ class Builder:
 
     @property
     def backend(self) -> str:
-        """使用的后端，tensorflow or pytorch
+        """使用的后端, tensorflow or pytorch
 
         Returns
         -------

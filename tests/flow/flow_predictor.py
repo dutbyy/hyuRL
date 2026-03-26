@@ -36,7 +36,9 @@ def common_serialize(data: Dict[str, np.ndarray]) -> bytes:
     return np_list
 
 
-def common_deserialize(np_list: predictor_pb2.NumpyList) -> Dict[str, Union[np.ndarray, Dict]]:
+def common_deserialize(
+    np_list: predictor_pb2.NumpyList,
+) -> Dict[str, Union[np.ndarray, Dict]]:
     data_dict = {}
 
     def deserialize_item(item: predictor_pb2.NumpyData, current_dict: Dict):
@@ -62,9 +64,12 @@ def common_deserialize(np_list: predictor_pb2.NumpyList) -> Dict[str, Union[np.n
 def pretocuda(nested_structure, cuda=True):
     import tree
 
+    # print(nested_structure)
     if torch.cuda.is_available():
-        return tree.map_structure(lambda x: torch.from_numpy(x).cuda(), nested_structure)
-    return tree.map_structure(lambda x: torch.from_numpy(x), nested_structure)
+        return tree.map_structure(
+            lambda x: torch.as_tensor(x).cuda(), nested_structure
+        )
+    return tree.map_structure(lambda x: torch.as_tensor(x), nested_structure)
 
 
 def convert_to_batch_state(states):
@@ -80,7 +85,6 @@ def convert_to_batch_state(states):
             except Exception as e:
                 print(f"exception key is {key}")
                 raise e
-
     return pretocuda(batch_state_dict, False)
 
 
@@ -131,7 +135,10 @@ class PredictorClient:
             self.channel = grpc.aio.insecure_channel(
                 f"{host}:{port}",
                 options=[
-                    ("grpc.max_send_message_length", -1),  # 发送的最大消息长度，-1 表示无限制
+                    (
+                        "grpc.max_send_message_length",
+                        -1,
+                    ),  # 发送的最大消息长度，-1 表示无限制
                     ("grpc.max_receive_message_length", -1),
                 ],
             )
@@ -139,20 +146,27 @@ class PredictorClient:
             self.channel = grpc.insecure_channel(
                 f"{host}:{port}",
                 options=[
-                    ("grpc.max_send_message_length", -1),  # 发送的最大消息长度，-1 表示无限制
+                    (
+                        "grpc.max_send_message_length",
+                        -1,
+                    ),  # 发送的最大消息长度，-1 表示无限制
                     ("grpc.max_receive_message_length", -1),
                 ],
             )
         self.stub = predictor_pb2_grpc.PredictorServiceStub(self.channel)
 
     async def predict(self, state_dict):
-        request = predictor_pb2.InferenceReq(model_name=state_dict["model"], data=common_serialize(state_dict["obs"]))
+        request = predictor_pb2.InferenceReq(
+            model_name=state_dict["model"], data=common_serialize(state_dict["obs"])
+        )
         inference_response = await self.stub.Inference(request)
         return common_deserialize(inference_response.data), inference_response.err_code
 
     def update_weight(self, model_name, weights, msg=""):
         pickle_weight = gzip.compress(pickle.dumps(weights))
-        req = predictor_pb2.UpdateWeightReq(model_name=model_name, weight=pickle_weight, extra_msg=msg)
+        req = predictor_pb2.UpdateWeightReq(
+            model_name=model_name, weight=pickle_weight, extra_msg=msg
+        )
         return self.stub.UpdateWeight(req)
 
 
@@ -170,7 +184,9 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
         self.times += 1
         a = timeit.default_timer()
         future = asyncio.Future()
-        await self._data_queue[request.model_name].put([common_deserialize(request.data), future])
+        await self._data_queue[request.model_name].put(
+            [common_deserialize(request.data), future]
+        )
         data = await future
         b = timeit.default_timer()
         rsp_data = common_serialize(data)
@@ -187,7 +203,9 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
         with torch.no_grad():
             for target_p, p in zip(flow_model._model._network.parameters(), weights):
                 target_p.copy_(torch.from_numpy(p))
-        response = predictor_pb2.UpdateWeightRsp(weight=b"", err_code=0, err_msg=f"Updated {model_name}'s weight.")
+        response = predictor_pb2.UpdateWeightRsp(
+            weight=b"", err_code=0, err_msg=f"Updated {model_name}'s weight."
+        )
         print("Updated weights finished")
         return response
 
@@ -202,8 +220,12 @@ class PredictorServiceServicer(predictor_pb2_grpc.PredictorServiceServicer):
                 diff = time.time() - start_time
                 if diff * 1000 < self.timeout:
                     try:
-                        tmp_timeout = 0.9 * (self.timeout / 1000 - diff) if len(requests) else 1
-                        request = await asyncio.wait_for(self._data_queue[model_name].get(), timeout=tmp_timeout)
+                        tmp_timeout = (
+                            0.9 * (self.timeout / 1000 - diff) if len(requests) else 1
+                        )
+                        request = await asyncio.wait_for(
+                            self._data_queue[model_name].get(), timeout=tmp_timeout
+                        )
                         requests.append(request)
                         if len(requests) == 1:
                             start_time = time.time()
@@ -263,12 +285,14 @@ def main(flow_config, builder):
     for model_name in predict_model_names:
         flow_model = flow_config["algorithm"]["flow_model"](model_name, builder)
         name2model[model_name] = flow_model
-    print("Predictor server starting.")
-    asyncio.run(serve(name2model))
+    # print("Predictor server starting.")
+    # asyncio.run(serve(name2model))
 
 
 if __name__ == "__main__":
     from hyurl.tools.common import fix_print
+
     fix_print()
-    from local.flow.env_config import flow_config
+    from tests.flow.env_config import flow_config
+
     main(flow_config, flow_config["builder"])

@@ -34,8 +34,8 @@ def getLogger(env_id):
     try:
         import os
 
-        os.system("mkdir -p /job/logs/user_log/")
-        handler = logging.FileHandler(f"/job/logs/user_log/{log_name}.log")
+        os.makedirs("./logs/user_log/", exist_ok=True)
+        handler = logging.FileHandler(f"./logs/user_log/{log_name}.log")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
     except:

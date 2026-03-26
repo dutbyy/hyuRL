@@ -1,25 +1,43 @@
 import gymnasium as gym
 import numpy as np
-import torch
-from typing import Tuple, Dict, Any
+from hyurl.flow.drill_plugin.api.api import ObsData
 
 
 class CartPoleEnv:
-    def __init__(self):
+    def __init__(self, env_id=None, extra_info=None):
         self.env = gym.make("CartPole-v1")
-        self.observation_space = self.env.observation_space
-        self.action_space = self.env.action_space
+        self.agent_names = ["cpdemo"]
+        self.env_id = env_id
+        self.extra_info = extra_info
 
-    def reset(self) -> Tuple[np.ndarray, Dict[str, Any]]:
-        observation, info = self.env.reset()
-        return observation, info
+    def reset(self):
+        self.total_reward = 0
+        raw_obs, _ = self.env.reset()
+        return {
+            agent_name: ObsData(
+                obs=raw_obs,
+                extra_info_dict={
+                    "reward": 1.0,
+                },
+                agent_name=agent_name
+            )
+            for agent_name in self.agent_names
+        }
 
-    def step(self, action: int) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
-        observation, reward, terminated, truncated, info = self.env.step(action)
-        return observation, reward, terminated, truncated, info
-
-    def close(self):
-        self.env.close()
-
-    def get_observation_dict(self, observation: np.ndarray) -> Dict[str, torch.Tensor]:
-        return {"observation": torch.from_numpy(observation).float().unsqueeze(0)}
+    def step(self, command_dict):
+        action = command_dict[self.agent_names[0]]
+        raw_obs, reward, terminated, truncated, info = self.env.step(action=np.array(action['action']).item())
+        self.total_reward += reward
+        done = terminated or truncated
+        
+        return {
+            agent_name: ObsData(
+                obs=raw_obs,
+                extra_info_dict={
+                    "reward": reward,
+                    "episode_reward": self.total_reward,
+                },
+                agent_name=agent_name
+            )
+            for agent_name in self.agent_names
+        }, done

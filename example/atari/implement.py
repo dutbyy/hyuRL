@@ -3,8 +3,8 @@ import ale_py
 gym.register_envs(ale_py)
 from gymnasium.wrappers import AtariPreprocessing
 import numpy as np
-from drill.pipeline.interface import ObsData, ActionData
-from drill import summary
+from hyurl.api.agent_type import ObsData, ActionData
+# from drill import summary
 import logging
 from .atari_wrappers_ray import wrap_deepmind
 from .atari_wrappers_sb3 import AtariWrapper
@@ -16,8 +16,8 @@ def getLogger(env_id):
     formatter = logging.Formatter('[%(asctime)s] [%(filename)s:%(lineno)d] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
     try:
         import os
-        os.system("mkdir -p /job/logs/user_log/")
-        handler = logging.FileHandler(f"/job/logs/user_log/{log_name}.log")
+        os.makedirs("./logs/user_log/", exist_ok=True)
+        handler = logging.FileHandler(f"./logs/user_log/{log_name}.log")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
     except:
@@ -59,9 +59,9 @@ class GymEnv:
         if terminated and info['lives'] <= 0:
             done = True
             self.logger.info(f"episode Over, clipped reward is {self.total_reward}")
-            summary.average("episode_reward", self.total_reward)
+            # summary.average("episode_reward", self.total_reward)
             self.logger.info(f"episode Over, natural reward is {info['nature_episode_reward']}")
-            summary.average("episode_natural_reward", info['nature_episode_reward'])
+            # summary.average("episode_natural_reward", info['nature_episode_reward'])
         return {
             agent_name: ObsData(
                 obs = raw_obs,
@@ -76,9 +76,10 @@ class GymEnv:
             for agent_name in self.agent_names
         }, terminated
 
-class PipelineImplement:
+from hyurl.api.agent.agent_pipeline import PipelineInterface
+class PipelineImplement(PipelineInterface):
     @staticmethod
-    def feature_handler(obs_data:ObsData, history):
+    def o2s(obs_data:ObsData, history=None):
         return {
             "common": {
                 "raw": obs_data.obs
@@ -86,10 +87,10 @@ class PipelineImplement:
         }
 
     @staticmethod
-    def reward_handler(obs_data:ObsData, history):
+    def reward(obs_data:ObsData, history=None):
         return obs_data.extra_info_dict.get("reward", 1.0)
 
     @staticmethod
-    def action_handler(action_data:ActionData, history):
+    def a2c(action_data:ActionData, history=None):
         action_data.action_mask = {k: np.ones(1) for k in action_data.action}
         return action_data

@@ -19,7 +19,7 @@ def exmain():
     # drill.local_run = True
     from hyurl.tools.infer import inference, init_env, init_model
     from example.cartpole.config import builder
-    model_path_dict = {"cp_model": "/job/model/cp_model/cp_model_200.pth"}
+    model_path_dict = {"cp_model": "./model/cp_model/cp_model_200.pth"}
     flow_env = init_env(builder=builder, env_id=1)
     name2model = init_model(builder, model_path_dict)
 

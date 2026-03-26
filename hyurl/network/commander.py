@@ -189,6 +189,7 @@ class ComplexNetwork(nn.Module):
 
     # @timer_decorator
     def forward(self, input_dict: dict, behavior_action_dict=None, training=False):
+        from rich import print
         state_dict = input_dict.copy()
         predict_output_dict = OrderedDict(
             {VALUE: None, LOGITS: {}, ACTION: {}, HIDDEN_STATE: {}}
@@ -204,7 +205,6 @@ class ComplexNetwork(nn.Module):
             for source in sub_model_config.dependency:
                 if state_dict and source in state_dict:
                     inputs.append(state_dict[source])
-            # inputs = [ state_dict[source] for source in sub_model_config.get('inputs', []) ]
             if len(inputs) == 0:
                 continue  # raise ValueError("Model have not inputs")
             if isinstance(sub_model, Encoder):

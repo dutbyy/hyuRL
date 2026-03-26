@@ -10,7 +10,7 @@ from typing import Dict, Any
 
 from hyurl.flow.drill_plugin.api.flow_api import EnvironmentDescriptor
 from hyurl.tools.common import construct, timer_decorator, fix_print
-from local.flow.flow_predictor import PredictorClient
+from tests.flow.flow_predictor import PredictorClient
 from hyurl.tools.common import Summary
 
 mean = lambda x : sum(x)/len(x)

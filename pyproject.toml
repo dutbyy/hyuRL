@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "dm-tree>=0.1.9",
     "gymnasium[atari]>=1.2.3",
+    "opencv-python>=4.13.0.92",
     "rich>=14.3.3",
     "tensorboard>=2.20.0",
     "torch>=2.11.0",

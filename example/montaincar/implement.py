@@ -6,18 +6,19 @@ from drill import summary
 import logging
 
 def getLogger(env_id):
+    import os
     log_name = env_id if isinstance(env_id, str) else f"env-{env_id}"
     logger = logging.getLogger(f"env-{env_id}")
     logger.setLevel(20)
-    formatter = logging.Formatter('[%(asctime)s] [%(filename)s:%(lineno)d] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-    try:
-        import os
-        os.system("mkdir -p /job/logs/user_log/")
-        handler = logging.FileHandler(f"/job/logs/user_log/{log_name}.log")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-    except:
-        pass
+    if not logger.handlers:
+        try:
+            os.makedirs("./logs/user_log/", exist_ok=True)
+            handler = logging.FileHandler(f"./logs/user_log/{log_name}.log")
+            formatter = logging.Formatter('[%(asctime)s] [%(filename)s:%(lineno)d] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+        except:
+            pass
     return logger
 
 class AcrobotEnv:

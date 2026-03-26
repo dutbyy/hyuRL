@@ -4,39 +4,57 @@ from typing import List, Dict, Tuple, Any, Union
 from collections import defaultdict
 import copy
 
-from hyurl.flow.drill_plugin.api.flow_api import Environment, EnvironmentDescriptor, NestedNDArray
+from hyurl.api.agent.pipeline_manager import PipelineManager
+from hyurl.flow.drill_plugin.api.flow_api import (
+    Environment,
+    EnvironmentDescriptor,
+    NestedNDArray,
+)
 
-from drill.builder import Builder
-from drill.pipeline import ActionData
-from drill.keys import HIDDEN_STATE, CRITIC_HIDDEN_STATE, ACTION, DECODER_MASK, REWARD, DONE, DROP_OUT, ADVANTAGE
+# from drill.builder import Builder
+from hyurl.api.agent_type import ActionData
+
+HIDDEN_STATE = "hidden_state"
+CRITIC_HIDDEN_STATE = "critic_hidden_state"
+ACTION = "action"
+DECODER_MASK = "decoder_mask"
+REWARD = "reward"
+DONE = "done"
+DROP_OUT = "drop_out"
+ADVANTAGE = "advantage"
 
 
 def getLogger(env_id):
     import logging
+
     log_name = env_id if isinstance(env_id, str) else f"env-{env_id}"
     logger = logging.getLogger(f"env-{env_id}")
     logger.setLevel(20)
-    formatter = logging.Formatter('[%(asctime)s] [%(filename)s:%(lineno)d] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-    try:
-        import os
-        os.system("mkdir -p /job/logs/user_log/")
-        handler = logging.FileHandler(f"/job/logs/user_log/{log_name}.log")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-    except:
-        pass
+    formatter = logging.Formatter(
+        "[%(asctime)s] [%(filename)s:%(lineno)d] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    if not logger.handlers:
+        try:
+            import os
+            os.makedirs("./logs/user_log/", exist_ok=True)
+            handler = logging.FileHandler(f"./logs/user_log/{log_name}.log")
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+        except:
+            pass
     return logger
 
+
 class FlowEnvImp(Environment):
-    """
-    创建一个新的环境
+    """    创建一个新的环境
     用户需要提供一个environment_creator给Flow, Flow会使用形如 environment_creator(environment_descriptor) 的 调用方式创建Environment Object. 因此如果此类型的__init__方法参数只有environment_descriptor, 可以直接将类型名 作为environment_creator.
     参数
     environment_descriptor (flow.api.EnvironmentDescriptor) –
     """
 
     def __init__(self, env_desc: EnvironmentDescriptor):
-        builder: Builder = env_desc.environment_creator_user_args["builder"]
+        builder = env_desc.environment_creator_user_args["builder"]
         env_id = env_desc.environment_id_on_this_task
         env_extra_info = {
             "node_id": env_desc.node_id,
@@ -49,8 +67,8 @@ class FlowEnvImp(Environment):
         # self._episode_mode_bool = env_desc.environment_creator_user_args["episode_mode"]
 
         self._builder = builder
-        self._env = builder.build_env(env_id, env_extra_info)
-        self._pipeline = builder.build_pipeline()
+        self._env: Environment = builder.build_env(env_id, env_extra_info)
+        self._pipeline: PipelineManager = builder.build_pipeline()
 
         self.flow_env_config = {}
         self._episode_done = None
@@ -89,18 +107,37 @@ class FlowEnvImp(Environment):
             self._obs_data, self._episode_done = self._env.step(self._command_dict)
             self._command_dict.clear()
 
-        agent2state, agent2reward = self._pipeline.pre_process(self._obs_data, self._episode_done)
+        agent2state, agent2reward = self._pipeline.pre_process(
+            self._obs_data, self._episode_done
+        )
         episode_done = 1.0 if self._episode_done else 0.0
         if self._episode_done and not self.episode_mode:
-            if sum([agent_data.extra_info_dict.get('lives', 0) for name, agent_data in self._obs_data.items()]) == 0:
-                self.reseted = sum([agent_data.extra_info_dict.get('episode_reward', 0) for name, agent_data in self._obs_data.items()])
+            if (
+                sum(
+                    [
+                        agent_data.extra_info_dict.get("lives", 0)
+                        for name, agent_data in self._obs_data.items()
+                    ]
+                )
+                == 0
+            ):
+                self.reseted = sum(
+                    [
+                        agent_data.extra_info_dict.get("episode_reward", 0)
+                        for name, agent_data in self._obs_data.items()
+                    ]
+                )
             self.reset()
-            agent2state, _ = self._pipeline.pre_process(self._obs_data, self._episode_done)
+            agent2state, _ = self._pipeline.pre_process(
+                self._obs_data, self._episode_done
+            )
 
         for agent_name, agent_state_dict in agent2state.items():
             reward = agent2reward.get(agent_name)
             if isinstance(reward, dict):
-                agent_state_dict[REWARD] = np.array(sum(reward.values()), dtype=np.float32)
+                agent_state_dict[REWARD] = np.array(
+                    sum(reward.values()), dtype=np.float32
+                )
             else:
                 agent_state_dict[REWARD] = np.array(reward, dtype=np.float32)
             agent_state_dict[DONE] = np.array(episode_done, dtype=np.float32)
@@ -115,20 +152,20 @@ class FlowEnvImp(Environment):
         self._agent_names = list(observe_return.keys())
         return observe_return
 
-
     def step(self, agent_name, predict_output):
-        # print(f"predict output is {predict_output}")
         self.__update_hidden_state(agent_name, predict_output)
 
         action_data = ActionData(
             action=copy.deepcopy(predict_output[ACTION]),
             predict_output=copy.deepcopy(predict_output),
         )
-        agent_command_dict, action_mask, decoder_mask_dict = self._pipeline.post_process(agent_name, action_data)
+        agent_command_dict, action_mask, decoder_mask_dict = (
+            self._pipeline.post_process(agent_name, action_data)
+        )
         self._command_dict.update(agent_command_dict)
         return {DECODER_MASK: decoder_mask_dict}
 
-    def enhance_fragment(self, agent_name:str, fragments: List[Any]):
+    def enhance_fragment(self, agent_name: str, fragments: List[Any]):
 
         self.logger.info(f"enhance_fragment {agent_name}: {len(fragments)}")
         rewards = []
@@ -160,14 +197,13 @@ class FlowEnvImp(Environment):
                 advantages.append(advantage)
             return list(reversed(advantages))
 
-
         advantages = cal_gae(rewards, values, dones)
 
         fragments_len = len(fragments)
         advantages_len = len(advantages)
         for i in range(advantages_len):
             fragments[i].append(
-                { ADVANTAGE: np.asarray(advantages[i], dtype=np.float32) }
+                {ADVANTAGE: np.asarray(advantages[i], dtype=np.float32)}
             )
         if fragments_len == advantages_len + 1:
             fragments.pop(-1)
@@ -178,9 +214,13 @@ class FlowEnvImp(Environment):
 
     def __update_hidden_state(self, agent_name, predict_output):
         if CRITIC_HIDDEN_STATE in predict_output:
-            self._last_hidden_state_dict[agent_name][HIDDEN_STATE] = copy.deepcopy(predict_output[HIDDEN_STATE])
+            self._last_hidden_state_dict[agent_name][HIDDEN_STATE] = copy.deepcopy(
+                predict_output[HIDDEN_STATE]
+            )
         if CRITIC_HIDDEN_STATE in predict_output:
-            self._last_hidden_state_dict[agent_name][CRITIC_HIDDEN_STATE] = copy.deepcopy(predict_output[CRITIC_HIDDEN_STATE])
+            self._last_hidden_state_dict[agent_name][CRITIC_HIDDEN_STATE] = (
+                copy.deepcopy(predict_output[CRITIC_HIDDEN_STATE])
+            )
 
     @property
     def agent_names(self) -> List[str]:
@@ -188,3 +228,4 @@ class FlowEnvImp(Environment):
 
     def set_config(self, config):
         pass
+

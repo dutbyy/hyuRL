@@ -1,8 +1,8 @@
 
 import gymnasium
 import numpy as np
-from drill.pipeline.interface import ObsData, ActionData
-from drill import summary
+from hyurl.api.agent_type import ObsData, ActionData
+# from drill import summary
 import logging
 
 def getLogger(env_id):
@@ -10,14 +10,15 @@ def getLogger(env_id):
     logger = logging.getLogger(f"env-{env_id}")
     logger.setLevel(20)
     formatter = logging.Formatter('[%(asctime)s] [%(filename)s:%(lineno)d] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-    try:
-        import os
-        os.system("mkdir -p /job/logs/user_log/")
-        handler = logging.FileHandler(f"/job/logs/user_log/{log_name}.log")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-    except:
-        pass
+    if not logger.handlers:
+        try:
+            import os
+            os.makedirs("./logs/user_log/", exist_ok=True)
+            handler = logging.FileHandler(f"./logs/user_log/{log_name}.log")
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+        except:
+            pass
     return logger
 
 class CartpoleEnv:
@@ -48,14 +49,14 @@ class CartpoleEnv:
         raw_obs, reward, truncted, done, extra_info = self.env.step(action=np.array(action['meta_action']).item())
         self.total_reward += 1
         if done or truncted:
-            summary.average("episode_reward", self.total_reward)
+            # summary.average("episode_reward", self.total_reward)
             self.hist_rewards.append(self.total_reward)
             if len(self.hist_rewards) >= 10:
                 mean = lambda x : sum(x)/len(x)
                 import os
                 import threading
                 self.logger.info(f"10 episode Over, Total reward is {mean(self.hist_rewards):.2f}")
-                # print(f"10 episode Over, Total reward is {mean(self.hist_rewards):.2f}")
+                print(f"10 episode Over, Total reward is {mean(self.hist_rewards):.2f}")
                 self.hist_rewards.clear()
 
         return {
@@ -72,7 +73,7 @@ class CartpoleEnv:
 
 class PipelineImplement:
     @staticmethod
-    def feature_handler(obs_data:ObsData, history):
+    def o2s(obs_data:ObsData, history):
         return {
             "common": {
                 "raw": obs_data.obs
@@ -80,10 +81,10 @@ class PipelineImplement:
         }
 
     @staticmethod
-    def reward_handler(obs_data:ObsData, history):
+    def reward(obs_data:ObsData, history):
         return obs_data.extra_info_dict.get("reward", 1.0)
 
     @staticmethod
-    def action_handler(action_data:ActionData, history):
+    def a2c(action_data:ActionData, history):
         action_data.action_mask = {k: np.ones(1) for k in action_data.action}
         return action_data

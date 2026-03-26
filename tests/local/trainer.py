@@ -1,123 +1,74 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from __future__ import annotations
+
+from typing import Dict
+from copy import deepcopy
 import numpy as np
-from typing import Dict, List, Tuple
-from .sampler import Sampler, Transition
+import random
+from tests.local.sampler import LocalSampler
+from tests.local.learner import LocalLearner
+from hyurl.tools.common import fix_print, Summary
 
 
-class PPOTrainer:
-    def __init__(
-        self,
-        model,
-        learning_rate: float = 3e-4,
-        gamma: float = 0.99,
-        gae_lambda: float = 0.95,
-        clip_ratio: float = 0.2,
-        value_coef: float = 0.5,
-        entropy_coef: float = 0.01,
-        max_grad_norm: float = 0.5,
-        device: str = "cpu",
-    ):
-        self.model = model
-        self.device = device
-        self.gamma = gamma
-        self.gae_lambda = gae_lambda
-        self.clip_ratio = clip_ratio
-        self.value_coef = value_coef
-        self.entropy_coef = entropy_coef
-        self.max_grad_norm = max_grad_norm
+def datas_prefix(datas, batch_size=1024):
+    assert batch_size <= len(datas)
+    datas = random.sample(datas, batch_size)
 
-        self.optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    def recursion(demo, origin):
+        if isinstance(demo, dict):
+            return {k: recursion(v, [it[k] for it in origin]) for k, v in demo.items()}
+        elif isinstance(demo, list):
+            return [recursion(item, [it[i] for it in origin]) for i, item in enumerate(demo)]
+        elif isinstance(demo, np.ndarray):
+            return np.stack(origin, 0)
+        else:
+            raise Exception(f"unsupport type: {type(demo)}")
 
-    def compute_gae(
-        self,
-        rewards: np.ndarray,
-        values: np.ndarray,
-        dones: np.ndarray,
-        next_value: float,
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        advantages = []
-        returns = []
-        gae = 0.0
+    return recursion(deepcopy(datas[0]), datas)
 
-        for t in reversed(range(len(rewards))):
-            if t == len(rewards) - 1:
-                next_val = next_value
-            else:
-                next_val = values[t + 1]
 
-            delta = rewards[t] + self.gamma * next_val * (1 - dones[t]) - values[t]
-            gae = delta + self.gamma * self.gae_lambda * (1 - dones[t]) * gae
-            advantages.insert(0, gae)
-            returns.insert(0, gae + values[t])
+class LocalTrainer:
+    def __init__(self, flow_config: Dict, epoch_num=10, sample_size=128, batch_size=64, save_interval=10):
+        self.sampler = LocalSampler(flow_config)
+        self.learner = LocalLearner(flow_config)
+        self.flow_config = flow_config
+        self.sample_size = sample_size
+        self.batch_size = batch_size
+        self.epoch_num = epoch_num
+        self.save_interval = save_interval
+        self.train_step = 0
 
-        return np.array(advantages), np.array(returns)
+    def run(self):
+        self.sampler.reset()
+        
+        def wrapper(datas, mini_batch):
+            t = mini_batch
+            idx = 0
+            while t <= len(datas):
+                yield idx, datas_prefix(datas[t - mini_batch : t], mini_batch)
+                t += mini_batch
+                idx += 1
 
-    def train_step(self, transitions: List[Transition], epochs: int = 4) -> Dict[str, float]:
-        if not transitions:
-            return {}
+        while True:
+            self.train_step += 1
+            datas = self.sampler.get_batch(self.sample_size)
+            for epoch in range(self.epoch_num):
+                random.shuffle(datas)
+                for idx, train_datas in wrapper(datas, self.batch_size):
+                    for model_name in self.learner.model_names:
+                        self.learner.train(model_name, train_datas)
+            for model_name in self.learner.model_names:
+                weights = self.learner.get_weights(model_name)
+                if self.save_interval and self.train_step % self.save_interval == 0:
+                    self.learner.flow_model_dic[model_name].save_weights()
 
-        observations = np.array([t.observation for t in transitions])
-        actions = np.array([t.action for t in transitions])
-        rewards = np.array([t.reward for t in transitions])
-        dones = np.array([t.done for t in transitions], dtype=np.float32)
-        values = np.array([t.value for t in transitions])
-        old_logits = {k: torch.stack([t.logits[k] for t in transitions]) for k in transitions[0].logits}
 
-        with torch.no_grad():
-            last_obs = transitions[-1].next_observation
-            last_obs_dict = {"observation": torch.from_numpy(last_obs).float().unsqueeze(0)}
-            last_output = self.model(last_obs_dict, training=False)
-            next_value = last_output["value"].item()
+def main(flow_config):
+    trainer = LocalTrainer(flow_config, epoch_num=1, sample_size=4096, batch_size=4096)
+    trainer.run()
 
-        advantages, returns = self.compute_gae(rewards, values, dones, next_value)
-        advantages = torch.from_numpy(advantages).float()
-        returns = torch.from_numpy(returns).float()
 
-        observations_tensor = torch.from_numpy(observations).float()
-        actions_tensor = torch.from_numpy(actions).long()
-
-        total_policy_loss = 0.0
-        total_value_loss = 0.0
-        total_entropy = 0.0
-
-        for _ in range(epochs):
-            obs_dict = {"observation": observations_tensor}
-            output = self.model(obs_dict, training=True)
-
-            action_logits = output["logits"]["action"]
-            action_probs = F.softmax(action_logits, dim=-1)
-            action_log_probs = F.log_softmax(action_logits, dim=-1)
-            selected_log_probs = action_log_probs.gather(1, actions_tensor.unsqueeze(1)).squeeze(1)
-
-            with torch.no_grad():
-                old_action_log_probs = F.log_softmax(old_logits["action"], dim=-1)
-                old_selected_log_probs = old_action_log_probs.gather(1, actions_tensor.unsqueeze(1)).squeeze(1)
-
-            ratio = torch.exp(selected_log_probs - old_selected_log_probs)
-            surr1 = ratio * advantages
-            surr2 = torch.clamp(ratio, 1 - self.clip_ratio, 1 + self.clip_ratio) * advantages
-            policy_loss = -torch.min(surr1, surr2).mean()
-
-            value_pred = output["value"].squeeze()
-            value_loss = F.mse_loss(value_pred, returns)
-
-            entropy = -(action_probs * action_log_probs).sum(dim=-1).mean()
-
-            loss = policy_loss + self.value_coef * value_loss - self.entropy_coef * entropy
-
-            self.optimizer.zero_grad()
-            loss.backward()
-            nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
-            self.optimizer.step()
-
-            total_policy_loss += policy_loss.item()
-            total_value_loss += value_loss.item()
-            total_entropy += entropy.item()
-
-        return {
-            "policy_loss": total_policy_loss / epochs,
-            "value_loss": total_value_loss / epochs,
-            "entropy": total_entropy / epochs,
-        }
+if __name__ == "__main__":
+    from tests.local.entry import flow_config
+    Summary.setpath('cartpole-v1-env')
+    fix_print()
+    main(flow_config)

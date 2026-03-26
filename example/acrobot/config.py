@@ -5,7 +5,7 @@ from hyurl.flow.drill_plugin.interface.builder import ExBuilder
 from hyurl.algo.PPOPolicy import PPOPolicy
 from example.acrobot.implement import AcrobotEnv
 from example.acrobot.implement import PipelineImplement
-from drill.pipeline import AgentPipeline, HandlerSpecies
+# from drill.pipeline import AgentPipeline, HandlerSpecies
 
 network_cfg = CommanderNetworkConfig(
     encoders=[

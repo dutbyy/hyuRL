@@ -6,7 +6,7 @@ from hyurl.flow.drill_plugin.interface.builder import ExBuilder
 from hyurl.algo.PPOPolicyMinibatch import PPOPolicy
 from example.atari.implement import GymEnv
 from example.atari.implement import PipelineImplement
-from drill.pipeline import AgentPipeline, HandlerSpecies
+# from drill.pipeline import AgentPipeline, HandlerSpecies
 from .network import ActorCriticCnn
 network_cfg = CommanderNetworkConfig(
     encoders=[

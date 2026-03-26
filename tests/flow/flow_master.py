@@ -4,9 +4,9 @@ from typing import Dict
 from copy import deepcopy
 import numpy as np
 import random
-from local.flow.flow_actor import Actor
-from local.flow.flow_learner import LocalLearner
-from local.flow.flow_predictor import PredictorClient
+from tests.flow.flow_actor import Actor
+from tests.flow.flow_learner import LocalLearner
+from tests.flow.flow_predictor import PredictorClient
 from hyurl.tools.common import fix_print
 
 
@@ -35,7 +35,7 @@ def trans2tensor(nested_structure):
 
 
 class LocalMaster:
-    def __init__(self, flow_config: Dict, epoch_num=10, sample_size=128, env_num=4, batch_size=64, save_interval=10):
+    def __init__(self, flow_config: Dict, epoch_num=10, sample_size=128, env_num=8, batch_size=64, save_interval=10):
         self.predictor = PredictorClient("localhost", 50051, False)
         self.actor = Actor(env_num=env_num, flow_config=flow_config)
         self.learner = LocalLearner(flow_config)
@@ -86,7 +86,7 @@ def main(flow_config):
 
 
 if __name__ == "__main__":
-    from local.flow.env_config import flow_config
+    from tests.flow.env_config import flow_config
     from hyurl.tools.common import Summary
     Summary.setpath('minigame-v1-env')
     fix_print()
