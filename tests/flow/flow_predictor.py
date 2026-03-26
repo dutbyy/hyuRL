@@ -285,8 +285,8 @@ def main(flow_config, builder):
     for model_name in predict_model_names:
         flow_model = flow_config["algorithm"]["flow_model"](model_name, builder)
         name2model[model_name] = flow_model
-    # print("Predictor server starting.")
-    # asyncio.run(serve(name2model))
+    print("Predictor server starting.")
+    asyncio.run(serve(name2model))
 
 
 if __name__ == "__main__":
