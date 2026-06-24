@@ -184,7 +184,7 @@ class ComplexNetwork(nn.Module):
         self.top_sorted = [it for it in top_generator]
         self._default_source_embeddings = torch.zeros(1)
         init_weights(self)
-        print("init weight by function: xavier uniform")
+        # print("init weight by function: xavier uniform")
 
 
     # @timer_decorator

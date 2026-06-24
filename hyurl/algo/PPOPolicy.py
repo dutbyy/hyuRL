@@ -69,14 +69,14 @@ class PPOPolicy:
         self.device = (
             device if (device != "cpu" and torch.cuda.is_available()) else "cpu"
         )
-        print(f"PPOPolciy.device is {self.device}")
+        # print(f"PPOPolciy.device is {self.device}")
         self.trainning = trainning
         self.advantage_normalize = adv_norm
         if isinstance(network_config, CommanderNetworkConfig):
             self._network = ComplexNetwork(network_config)
             # self._network = torch.compile(ComplexNetwork(network_config))
         elif isinstance(network_config, Dict):
-            print(network_config)
+            # print(network_config)
             self._network = construct(network_config)
         elif isinstance(network_config, type) and issubclass(network_config, nn.Module):
             self._network = network_config()
@@ -169,5 +169,5 @@ class PPOPolicy:
 
         summary_dict = {k:v.detach().cpu().numpy() for k, v in summary_dict.items()}
         for k, v in summary_dict.items():
-            Summary.add_scaler(k, v)
+            Summary.add_scalar(k, v)
         return summary_dict

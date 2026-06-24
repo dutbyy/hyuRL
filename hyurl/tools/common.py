@@ -94,7 +94,7 @@ class Summary:
         cls.writer: SummaryWriter = SummaryWriter(log_dir)
 
     @classmethod
-    def add_scaler(cls, key, value, global_step=None, wall_time=None):
+    def add_scalar(cls, key, value, global_step=None, wall_time=None):
         if not global_step:
             cls.step_dict[key] = cls.step_dict[key] + 1
             global_step = cls.step_dict[key]

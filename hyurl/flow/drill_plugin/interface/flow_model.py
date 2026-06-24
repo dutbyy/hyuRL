@@ -3,18 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List
 import time
-# from drill.flow import flow
 import logging
 import numpy as np
 import tree
 import torch
 
-# from drill import summary
-# from drill.keys import ACTION_MASK, DECODER_MASK
-# from drill.model import Model
-# from drill.utils import get_hvd
-
-# from drill.builder import Builder
 ACTION_MASK = 'action_mask'
 DECODER_MASK = 'decoder_mask'
 
@@ -142,14 +135,10 @@ class FlowModelPPO:
         training_data = trans2tensor(training_data, self._model.device)
         summary_dict = self._model.learn(training_data)
 
-        # for k, v in summary_dict.items():
-        #     summary.average(f"{self._model_name}_{k}", v, source="origin")
         if True:
-            # summary.sum(f"{self._model_name}_update_step", 1, source="origin")
             if hasattr(self, "_save_params") and self._learn_step % self._save_params["interval"] == 0:
                 self.save_weights(self._save_params["mode"])
                 self.logger.info("saving weights of model.")
-        # summary.sum(f"{self._model_name}_learn_step", 1, source="origin")
         self._learn_step += 1
         return True
 

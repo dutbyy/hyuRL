@@ -185,5 +185,5 @@ class PPOPolicy:
         }
         summary_dict = {k: v.detach().cpu().numpy() for k, v in summary_dict.items()}
         for k, v in summary_dict.items():
-            Summary.add_scaler(k, v)
+            Summary.add_scalar(k, v)
         return summary_dict
