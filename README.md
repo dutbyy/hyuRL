@@ -316,7 +316,7 @@ PPO 是一种近端策略优化算法，通过限制策略更新的幅度来保�
 from hyurl.tools.common import Summary
 
 # 记录标量
-Summary.add_scaler("loss", 0.5, global_step=100)
+Summary.add_scalar("loss", 0.5, global_step=100)
 
 # 设置日志路径
 Summary.setpath("experiment_1")
