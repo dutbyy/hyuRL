@@ -69,7 +69,7 @@ class PPOPolicy:
         adv_norm: bool = True,
     ):
 
-        self.device = device if (device != "cpu" and torch.cuda.is_available()) else "cpu"
+        self.device = device if (device != "cpu" and (torch.cuda.is_available() or torch.mps.is_available())) else "cpu"
         print(f"PPOPolciy.device is {self.device}")
         self.trainning = trainning
         self.advantage_normalize = adv_norm
@@ -174,6 +174,7 @@ class PPOPolicy:
             # print(f"befor : {total_norm_before}, after: {total_norm_after}")
         self._optimizer.step()
         torch.cuda.empty_cache()  # 释放未使用的显存
+        torch.mps.empty_cache()
         summary_dict = {
             "loss": loss,
             "policy_loss": policy_loss,

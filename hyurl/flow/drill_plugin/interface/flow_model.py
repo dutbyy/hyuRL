@@ -32,6 +32,8 @@ def getLogger(env_id):
 def trans2tensor(nested_structure, device='cpu'):
     if device =='cuda' and torch.cuda.is_available():
         return tree.map_structure(lambda x: torch.as_tensor(x).cuda(), nested_structure)
+    elif device == 'mps' and torch.mps.is_available():
+        return tree.map_structure(lambda x: torch.as_tensor(x).to("mps:0"), nested_structure)
     else:
         return tree.map_structure(lambda x: torch.as_tensor(x), nested_structure)
 
@@ -67,6 +69,9 @@ class FlowModelPPO:
         self._model._network.train()
         if torch.cuda.is_available():
             self._model._network.cuda()
+        elif torch.mps.is_available():
+            self._model._network.to("mps:0")
+
 
     def setstate_predict(self, state=None):
         try:

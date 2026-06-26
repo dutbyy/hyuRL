@@ -67,7 +67,7 @@ class PPOPolicy:
     ):
 
         self.device = (
-            device if (device != "cpu" and torch.cuda.is_available()) else "cpu"
+            device if (device != "cpu" and (torch.cuda.is_available() or torch.mps.is_available()) else "cpu"
         )
         # print(f"PPOPolciy.device is {self.device}")
         self.trainning = trainning
