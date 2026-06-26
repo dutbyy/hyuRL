@@ -14,14 +14,15 @@ def getLogger(env_id):
     logger = logging.getLogger(f"env-{env_id}")
     logger.setLevel(20)
     formatter = logging.Formatter('[%(asctime)s] [%(filename)s:%(lineno)d] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-    try:
-        import os
-        os.makedirs("./logs/user_log/", exist_ok=True)
-        handler = logging.FileHandler(f"./logs/user_log/{log_name}.log")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-    except:
-        pass
+    if not logger.handlers:
+        try:
+            import os
+            os.makedirs("./logs/user_log/", exist_ok=True)
+            handler = logging.FileHandler(f"./logs/user_log/{log_name}.log")
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+        except:
+            pass
     return logger
 
 
@@ -55,9 +56,8 @@ class GymEnv:
         action = command_dict[self.agent_names[0]]
         raw_obs, reward, terminated, truncated, info = self.env.step(action=action['meta_action'])
         self.total_reward += reward
-        done = False
-        if terminated and info['lives'] <= 0:
-            done = True
+        done = terminated or truncated
+        if done and info['lives'] <= 0:
             self.logger.info(f"episode Over, clipped reward is {self.total_reward}")
             # summary.average("episode_reward", self.total_reward)
             self.logger.info(f"episode Over, natural reward is {info['nature_episode_reward']}")
@@ -74,7 +74,7 @@ class GymEnv:
                 agent_name=agent_name,
             )
             for agent_name in self.agent_names
-        }, terminated
+        }, done
 
 from hyurl.api.agent.agent_pipeline import PipelineInterface
 class PipelineImplement(PipelineInterface):

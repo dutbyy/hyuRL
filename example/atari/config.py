@@ -2,11 +2,10 @@ from hyurl.feature.feature import *
 from hyurl.feature.feature_set import *
 from hyurl.api.net.net import *
 from hyurl.flow.drill_plugin.interface.builder import ExBuilder
-# from hyurl.algo.PPOPolicy import PPOPolicy
 from hyurl.algo.PPOPolicyMinibatch import PPOPolicy
+from hyurl.api.agent.agent_pipeline import Agent
 from example.atari.implement import GymEnv
 from example.atari.implement import PipelineImplement
-# from drill.pipeline import AgentPipeline, HandlerSpecies
 from .network import ActorCriticCnn
 network_cfg = CommanderNetworkConfig(
     encoders=[
@@ -46,11 +45,11 @@ model_config = {
             "learning_rate": 2.5e-4,
             "clip_epsilon": 0.2,
             "eps": 1e-5,
-            "device": "cuda",
-            "max_grad_norm": 40,
+            "device": "mps",
+            "max_grad_norm": 0.5,
             "epoch_num": 4,
-            "minibatch_split": 4,
-            "adv_norm": False,
+            "minibatch_split": 8,
+            "adv_norm": True,
         },
         "save": {
             "interval": 100,  # 模型存储间隔，即网络更新多少次存储一次模型
@@ -58,20 +57,14 @@ model_config = {
     },
 }
 
-feature_list = [encoder_cfg.feature_set for encoder_cfg in network_cfg.encoders]
+feature_sets = [encoder_cfg.feature_set for encoder_cfg in network_cfg.encoders]
 
 pipeline = {
     "atari_pipeline": {
-        "class": AgentPipeline,
+        "class": Agent,
         "params": {
-            "handler_dict": {
-                HandlerSpecies.FEATURE: (
-                    PipelineImplement.feature_handler,
-                    feature_list,
-                ),
-                HandlerSpecies.REWARD: PipelineImplement.reward_handler,
-                HandlerSpecies.ACTION: PipelineImplement.action_handler,
-            },
+            "feature_sets": feature_sets,
+            "pipeline": PipelineImplement(),
         },
     }
 }

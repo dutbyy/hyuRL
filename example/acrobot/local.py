@@ -1,5 +1,4 @@
 import os
-import logging
 
 
 def fix_print():
@@ -15,8 +14,6 @@ def fix_print():
     builtins.print = custom_print
 
 def exmain():
-    # import drill
-    # drill.local_run = True
     from hyurl.tools.infer import inference, init_env, init_model
     from example.cartpole.config import builder
     model_path_dict = {"cp_model": "/job/model/cp_model/cp_model_200.pth"}

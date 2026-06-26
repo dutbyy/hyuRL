@@ -1,7 +1,7 @@
 # builder = None
-from example.acrobot.config import builder
 from hyurl.flow.drill_plugin.interface.flow_model import FlowModelPPO
 from hyurl.flow.drill_plugin.interface.flow_env import FlowEnvImp as FlowEnvPPO
+from example.acrobot.config import builder
 
 flow_config = {
     'framework': "pytorch",
@@ -11,7 +11,7 @@ flow_config = {
         'actor_ac': {
             'training_models': [
                 {
-                    'model_name': 'ac_model',
+                    'model_name': 'acrobot_model',
                     'fragment_size': 512,
                     'replay_size': 1,
                     'sample_batch_size': 4096,

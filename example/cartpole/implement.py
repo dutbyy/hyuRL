@@ -2,7 +2,6 @@
 import gymnasium
 import numpy as np
 from hyurl.api.agent_type import ObsData, ActionData
-# from drill import summary
 import logging
 
 def getLogger(env_id):
@@ -49,7 +48,6 @@ class CartpoleEnv:
         raw_obs, reward, truncted, done, extra_info = self.env.step(action=np.array(action['meta_action']).item())
         self.total_reward += 1
         if done or truncted:
-            # summary.average("episode_reward", self.total_reward)
             self.hist_rewards.append(self.total_reward)
             if len(self.hist_rewards) >= 10:
                 mean = lambda x : sum(x)/len(x)
