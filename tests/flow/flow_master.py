@@ -35,7 +35,7 @@ def trans2tensor(nested_structure):
 
 
 class LocalMaster:
-    def __init__(self, flow_config: Dict, epoch_num=10, sample_size=128, env_num=8, batch_size=64, save_interval=10):
+    def __init__(self, flow_config: Dict, epoch_num=8, sample_size=128, env_num=8, batch_size=128, save_interval=10):
         self.predictor = PredictorClient("localhost", 50051, False)
         self.actor = Actor(env_num=env_num, flow_config=flow_config)
         self.learner = LocalLearner(flow_config)
@@ -61,6 +61,7 @@ class LocalMaster:
                 t += mini_batch
                 idx += 1
 
+        # Sync PPO 
         while True:
             self.train_step += 1
             datas = self.actor.get_batch(self.sample_size)
@@ -88,6 +89,6 @@ def main(flow_config):
 if __name__ == "__main__":
     from tests.flow.env_config import flow_config
     from hyurl.tools.common import Summary
-    Summary.setpath('minigame-v1-env')
+    Summary.setpath(list(flow_config["actor_config"].keys())[0])
     fix_print()
     main(flow_config)

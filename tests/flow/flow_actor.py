@@ -118,7 +118,7 @@ class Actor:
             if len(self.total_rewards) > 100:
                 self.total_rewards[:] = self.total_rewards[-100:]
             self.logger.info(f"average episode reward is {mean(self.total_rewards):.1f}")
-            Summary.add_scaler('episode_reward', mean(self.total_rewards))
+            Summary.add_scalar('episode_reward', mean(self.total_rewards))
         rets = [pickle.loads(item) for item in self.datas]
         self.sampling_flag.value = 0
         return rets

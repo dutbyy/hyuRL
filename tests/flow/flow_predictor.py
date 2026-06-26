@@ -291,8 +291,6 @@ def main(flow_config, builder):
 
 if __name__ == "__main__":
     from hyurl.tools.common import fix_print
-
     fix_print()
     from tests.flow.env_config import flow_config
-
     main(flow_config, flow_config["builder"])
